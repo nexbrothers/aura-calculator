@@ -36,7 +36,7 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 - Respect reduced motion: pass `animate = false` to `AuraField` when animations are disabled.
 
 ## Roadmap (not built yet)
-Splash, level-up + share card, Plus paywall,
+Splash, Plus paywall,
 4×1 and 4×2 widgets + aura bitmap in widgets, limit-warning notifications, focus foreground service.
 
 ## Working agreements for Claude

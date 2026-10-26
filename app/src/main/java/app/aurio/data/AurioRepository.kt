@@ -206,6 +206,14 @@ class AurioRepository(
 
     private fun accessOffKey(date: LocalDate) = "access_off:$date"
 
+    // ---- Level-ups ----------------------------------------------------------------------
+
+    /** Level changes written by settlement, with the id up to which the user has seen them. */
+    val levelEvents: Flow<List<LevelEventEntity>> = db.scores().observeLevelEvents()
+    val levelSeenThrough: Flow<Long> = db.meta().observe(LEVEL_SEEN).map { it?.toLongOrNull() ?: 0L }
+
+    suspend fun markLevelsSeen(throughId: Long) = db.meta().put(AppMetaEntity(LEVEL_SEEN, throughId.toString()))
+
     /**
      * Freezes every finished day that is not settled yet, oldest first, each in one transaction.
      * Safe to call any time and from any thread: a lock keeps the worker and the app apart.
@@ -296,6 +304,7 @@ class AurioRepository(
     companion object {
         const val DEFAULT_LIMIT = 30
         private const val START_DATE = "start_date"
+        private const val LEVEL_SEEN = "level_seen_through"
     }
 }
 

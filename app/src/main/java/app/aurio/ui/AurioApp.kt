@@ -34,6 +34,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.data.AurioStore
+import app.aurio.ui.levelup.LevelUpScreen
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import app.aurio.domain.AppCategory
 import app.aurio.ui.apps.AppDetailScreen
 import app.aurio.ui.apps.AppPicker
@@ -85,6 +88,13 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
     val showBar = Tab.entries.any { it.route == route }
+
+    // A level reached at midnight is celebrated once, the next time a main tab is open
+    // (never in the middle of a focus session or a settings flow).
+    val levelUp by AurioStore.levelUp.collectAsStateWithLifecycle()
+    LaunchedEffect(levelUp, showBar) {
+        if (levelUp != null && showBar) nav.navigate("levelup") { launchSingleTop = true }
+    }
 
     fun goTab(r: String) = nav.navigate(r) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -147,7 +157,22 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
                 }
                 composable(Tab.INSIGHTS.route) { InsightsScreen() }
                 composable(Tab.PROFILE.route) { ProfileScreen(onOpenUsageSettings, onDeveloperTools = { nav.navigate("debug") }) }
-                composable("debug") { app.aurio.ui.debug.DebugScreen(onBack = { nav.popBackStack() }) }
+                composable("debug") {
+                    app.aurio.ui.debug.DebugScreen(onBack = { nav.popBackStack() }, onPreviewLevelUp = { nav.navigate("levelup/preview") })
+                }
+                composable("levelup/preview") {
+                    LevelUpScreen(app.aurio.domain.AuraLevel.GLOW, 412, reduceMotion = false, onDone = { nav.popBackStack() }, canShare = false)
+                }
+                composable("levelup") {
+                    val shown = remember { AurioStore.levelUp.value }
+                    val st by AurioStore.state.collectAsStateWithLifecycle()
+                    if (shown == null) {
+                        LaunchedEffect(Unit) { nav.popBackStack() }
+                    } else {
+                        LaunchedEffect(shown) { AurioStore.markLevelUpSeen(shown) }
+                        LevelUpScreen(shown.level, shown.score, st.settings.reduceMotion, onDone = { nav.popBackStack() })
+                    }
+                }
                 composable("focus/run") {
                     FocusRunningScreen(
                         onComplete = { earned -> nav.navigate("focus/done/$earned") { popUpTo(Tab.FOCUS.route) } },

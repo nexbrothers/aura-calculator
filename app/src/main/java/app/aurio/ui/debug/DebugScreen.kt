@@ -36,7 +36,7 @@ import app.aurio.ui.theme.AurioType
 
 /** Debug builds only. Lets you test days, limits and midnight scoring without waiting. */
 @Composable
-fun DebugScreen(onBack: () -> Unit) {
+fun DebugScreen(onBack: () -> Unit, onPreviewLevelUp: () -> Unit = {}) {
     val context = LocalContext.current
     val state by AurioStore.state.collectAsStateWithLifecycle()
     var tick by remember { mutableIntStateOf(0) } // forces the labels below to refresh
@@ -88,6 +88,7 @@ fun DebugScreen(onBack: () -> Unit) {
         }
 
         Card("Reset") {
+            SecondaryButton("Preview level-up (sample, saves nothing)", onPreviewLevelUp, container = AurioColors.SurfaceSunken)
             SecondaryButton("Back to real time and usage", { change { DebugTime.reset() } }, container = AurioColors.SurfaceSunken)
             SecondaryButton("Delete all data and restart onboarding", { DebugTime.reset(); AurioStore.deleteAllData(); onBack() }, container = AurioColors.LossBg)
         }

@@ -10,6 +10,8 @@ import app.aurio.data.db.terms
 import app.aurio.domain.AppTerms
 import app.aurio.domain.DayRecord
 import app.aurio.domain.DayRules
+import app.aurio.domain.LevelChange
+import app.aurio.domain.LevelUps
 import app.aurio.data.settings.Settings
 import app.aurio.domain.AppCategory
 import app.aurio.domain.AppUsage
@@ -35,6 +37,7 @@ import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusAlarm
 import app.aurio.focus.FocusNotifications
+import app.aurio.ui.levelup.ShareCard
 import java.time.LocalDate
 
 /** Everything the screens show, derived from what is saved on the phone. */
@@ -119,7 +122,26 @@ object AurioStore {
                 )
             }.collect { _state.value = it }
         }
+        scope.launch {
+            combine(repo.levelEvents, repo.levelSeenThrough, repo.lastSettled) { events, seen, last ->
+                val unseen = events.filter { it.id > seen }
+                    .map { LevelChange(it.id, AuraLevel.valueOf(it.fromLevel), AuraLevel.valueOf(it.toLevel)) }
+                LevelUps.toCelebrate(unseen, AuraLevel.of(last?.totalAfter ?: 0))
+                    ?.let { LevelUp(it, last?.totalAfter ?: 0, seenThroughId = unseen.maxOf { e -> e.id }) }
+            }.collect { _levelUp.value = it }
+        }
     }
+
+    // ---- Level-ups -------------------------------------------------------------------------
+
+    /** A level reached at a past midnight that the user has not been shown yet. */
+    data class LevelUp(val level: AuraLevel, val score: Int, val seenThroughId: Long)
+
+    private val _levelUp = MutableStateFlow<LevelUp?>(null)
+    val levelUp: StateFlow<LevelUp?> = _levelUp.asStateFlow()
+
+    /** The moment is shown once: everything up to [levelUp] counts as seen, celebrated or not. */
+    fun markLevelUpSeen(levelUp: LevelUp) { scope.launch { repo.markLevelsSeen(levelUp.seenThroughId) } }
 
     private class DayData(
         val usage: List<UsageDayEntity>,
@@ -249,6 +271,7 @@ object AurioStore {
     fun deleteAllData() {
         FocusAlarm.cancel(app!!)
         FocusNotifications.clear(app!!)
+        ShareCard.clear(app!!)
         scope.launch {
             repo.deleteEverything()
             settingsStore.clear()
