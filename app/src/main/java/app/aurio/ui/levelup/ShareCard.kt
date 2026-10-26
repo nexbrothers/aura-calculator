@@ -5,19 +5,16 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.RadialGradient
-import android.graphics.Shader
 import android.graphics.Typeface
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import app.aurio.R
 import app.aurio.domain.AuraLevel
+import app.aurio.ui.aura.AuraPainter
 import app.aurio.ui.theme.AuraPalettes
 import app.aurio.ui.theme.AurioColors
 import java.io.File
-import kotlin.random.Random
 
 /**
  * A story-sized image of the user's aura, level and score: nothing about which apps they use or
@@ -30,13 +27,7 @@ object ShareCard {
     fun render(context: Context, level: AuraLevel, score: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val p = AuraPalettes.of(level)
-        canvas.drawColor(p.base.toArgb())
-        blob(canvas, p.c1, 0.10f, 0.10f, 0.70f)
-        blob(canvas, p.c2, 0.92f, 0.18f, 0.62f)
-        blob(canvas, p.c3, 0.28f, 0.78f, 0.72f)
-        blob(canvas, p.c4, 0.90f, 0.86f, 0.56f)
-        grain(canvas)
+        AuraPainter.draw(canvas, AuraPalettes.of(level), W, H)
 
         val bricolage = ResourcesCompat.getFont(context, R.font.bricolage_grotesque) ?: Typeface.DEFAULT_BOLD
         val onest = ResourcesCompat.getFont(context, R.font.onest) ?: Typeface.DEFAULT
@@ -70,32 +61,6 @@ object ShareCard {
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, "Share your aura").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
-
-    private fun blob(canvas: Canvas, color: Color, x: Float, y: Float, radiusFraction: Float) {
-        val cx = x * W
-        val cy = y * H
-        val r = radiusFraction * H * 0.75f
-        val c = color.toArgb()
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = RadialGradient(
-                cx, cy, r,
-                intArrayOf(c, color.copy(alpha = 0.55f).toArgb(), color.copy(alpha = 0f).toArgb()),
-                floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP,
-            )
-        }
-        canvas.drawCircle(cx, cy, r, paint)
-    }
-
-    private fun grain(canvas: Canvas) {
-        val r = Random(7)
-        val light = Paint().apply { color = Color.White.copy(alpha = 0.18f).toArgb() }
-        val dark = Paint().apply { color = Color.Black.copy(alpha = 0.05f).toArgb() }
-        repeat(9000) { i ->
-            val x = r.nextFloat() * W
-            val y = r.nextFloat() * H
-            canvas.drawRect(x, y, x + 3f, y + 3f, if (i % 2 == 0) light else dark)
-        }
     }
 
     private fun text(

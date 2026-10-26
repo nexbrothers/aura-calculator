@@ -27,6 +27,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -37,6 +40,7 @@ import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusAlarm
 import app.aurio.focus.FocusNotifications
+import app.aurio.widget.Widgets
 import app.aurio.ui.levelup.ShareCard
 import java.time.LocalDate
 
@@ -129,6 +133,14 @@ object AurioStore {
                 LevelUps.toCelebrate(unseen, AuraLevel.of(last?.totalAfter ?: 0))
                     ?.let { LevelUp(it, last?.totalAfter ?: 0, seenThroughId = unseen.maxOf { e -> e.id }) }
             }.collect { _levelUp.value = it }
+        }
+        // Redraw home-screen widgets whenever something they show changes: a session, a sync,
+        // a limit edit, midnight settlement. Nothing else triggers a redraw.
+        scope.launch {
+            _state.filter { it.loaded }
+                .map { s -> listOf(s.score, s.level, s.daily.total, s.usageAccess, s.apps.map { Triple(it.label, it.usedMinutes, it.limitMinutes) }) }
+                .distinctUntilChanged()
+                .collect { Widgets.refreshAll(application) }
         }
     }
 

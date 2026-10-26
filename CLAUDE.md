@@ -37,7 +37,7 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 
 ## Roadmap (not built yet)
 Splash, Plus paywall,
-4×1 and 4×2 widgets + aura bitmap in widgets, limit-warning notifications, focus foreground service.
+Limit-warning notifications, focus foreground service.
 
 ## Working agreements for Claude
 - Use the `aurio-design-system` skill before any UI work and the `compose-screen` skill for new screens.

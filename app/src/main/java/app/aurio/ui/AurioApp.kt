@@ -33,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.aurio.MainActivity
 import app.aurio.data.AurioStore
 import app.aurio.ui.levelup.LevelUpScreen
 import androidx.compose.runtime.remember
@@ -69,7 +70,7 @@ private fun strokeIcon(path: String): ImageVector =
         ).build()
 
 @Composable
-fun AurioApp(onOpenUsageSettings: () -> Unit) {
+fun AurioApp(onOpenUsageSettings: () -> Unit, openRequest: String? = null, onOpenHandled: () -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     if (!state.loaded) {
         Box(Modifier.fillMaxSize().background(AurioColors.Paper))
@@ -79,11 +80,11 @@ fun AurioApp(onOpenUsageSettings: () -> Unit) {
         OnboardingFlow(state.onboardingStep, state.usageAccess, onOpenUsageSettings)
         return
     }
-    MainNav(onOpenUsageSettings)
+    MainNav(onOpenUsageSettings, openRequest, onOpenHandled)
 }
 
 @Composable
-private fun MainNav(onOpenUsageSettings: () -> Unit) {
+private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpenHandled: () -> Unit) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
@@ -100,6 +101,12 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+
+    // A widget's "Start focus" opens the Focus tab (which resumes a session already running).
+    LaunchedEffect(openRequest) {
+        if (openRequest == MainActivity.OPEN_FOCUS) goTab(Tab.FOCUS.route)
+        if (openRequest != null) onOpenHandled()
     }
 
     Scaffold(

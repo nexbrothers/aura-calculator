@@ -32,7 +32,7 @@ Plans (Claude Docs, read-only context):
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
 3. Level-up: celebrated only for levels reached at midnight (not right after a focus session). The share card was
    checked with the debug preview. App detail and the heatmap still need a look with real history.
-4. Widgets (2x2, 4x1, 4x2) read from the store and refresh on session and midnight; currently 2x2 shows score only.
+4. Widgets are built but not yet looked at on a home screen.
 5. Run device tests (connectedDebugAndroidTest). Compare Aurio's minutes with the phone's own screen-time page
    for 3 days now that usage is read from events. Known small gaps: picture-in-picture is not counted, and a
    screen woken without a new resume (call proximity blanking) loses the time after wake.
@@ -73,6 +73,12 @@ Plans (Claude Docs, read-only context):
 - ShareCard draws a 1080x1920 PNG (aura, level, score only), shares it via FileProvider (cache/share only).
   Delete all data removes it. Developer tools > Preview level-up / Preview share card show both with sample
   values (nothing saved or shared). Card text stays inside the story safe area (top 250, bottom 340 px).
+
+## Widgets
+- widget/AuraWidget.kt: 2x2 (aura bitmap, level, score, today), 4x1 (closest limit + Start focus), 4x2 (aura + 3 limits).
+  All read AurioStore.state, so they match Home. The aura is drawn by ui/aura/AuraPainter (shared with ShareCard).
+- Redrawn when score, level, today or limits change (AurioStore), and every ~30 min the receivers also sync usage.
+- Start focus opens MainActivity with EXTRA_OPEN=focus, routed to the Focus tab.
 
 ## Usage minutes
 - Read from UsageStatsManager.queryEvents (6 h lookback), summed by domain/ForegroundTime.kt and cut exactly

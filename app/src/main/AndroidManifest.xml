@@ -84,5 +84,29 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/aura_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".widget.LimitWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_limit_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/limit_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LimitsWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_limits_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/limits_widget_info" />
+        </receiver>
     </application>
 </manifest>
