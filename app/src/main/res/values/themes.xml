@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Aurio" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/aurio_paper</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.Aurio.Splash" parent="Theme.Aurio">
+        <item name="android:windowBackground">@color/aurio_aura_bg</item>
+    </style>
+</resources>

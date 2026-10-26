@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Aurio</string>
+    <string name="widget_aura_label">Aura</string>
+    <string name="widget_aura_description">Your aura score and level</string>
+</resources>
