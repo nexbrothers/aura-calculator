@@ -81,8 +81,8 @@ object AurioStore {
         if (app != null) return
         app = application
         val dayData = today.flatMapLatest { d ->
-            combine(repo.usageFor(d), repo.focusFor(d), usageAccess, repo.running) { usage, focus, access, running ->
-                DayData(usage, focus, access, running)
+            combine(repo.usageFor(d), repo.focusFor(d), usageAccess, repo.running, repo.accessWasOff(d)) { usage, focus, access, running, wasOff ->
+                DayData(usage, focus, access, running, wasOff)
             }
         }
         scope.launch {
@@ -90,7 +90,9 @@ object AurioStore {
                 val current = tracked.associate { it.packageName to it.terms() }
                 val recorded = day.usage.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
                 val minutes = day.usage.associate { it.packageName to it.minutes }
-                val apps = DayRules.appsForDay(recorded, current) { pkg -> if (day.access) (minutes[pkg] ?: 0) else null }
+                // Once access was seen off today, today settles as Unknown, so Home shows Unknown too.
+                val known = day.access && !day.accessWasOff
+                val apps = DayRules.appsForDay(recorded, current) { pkg -> if (known) (minutes[pkg] ?: 0) else null }
                 AurioState(
                     loaded = true,
                     settings = settings,
@@ -113,6 +115,7 @@ object AurioStore {
         val focus: List<FocusSessionEntity>,
         val access: Boolean,
         val running: FocusSessionEntity?,
+        val accessWasOff: Boolean,
     )
 
     // ---- Usage and the daily rhythm ------------------------------------------------------
@@ -135,11 +138,12 @@ object AurioStore {
                 }
             }
             val day = SystemAurioClock.today()
+            if (!granted) r.markAccessOff(day)
             r.recordTerms(day)
             today.value = day
             usageAccess.value = granted
             if (granted) {
-                val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.todayMinutes(context)
+                val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day)
                 r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
             }
         }

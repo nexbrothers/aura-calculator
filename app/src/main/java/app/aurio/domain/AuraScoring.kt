@@ -102,7 +102,7 @@ object AuraScoring {
         val statuses = limited.associateWith { limitStatus(it) }
         val under = statuses.values.filterIsInstance<LimitStatus.Under>()
         if (statuses.values.any { it is LimitStatus.Unknown }) {
-            lines += ScoreLine(LineKind.UNKNOWN, 0, "Limits unknown", "Usage access is off")
+            lines += ScoreLine(LineKind.UNKNOWN, 0, "Limits unknown", "Usage access was off today")
         }
         if (under.isNotEmpty()) {
             val n = under.size

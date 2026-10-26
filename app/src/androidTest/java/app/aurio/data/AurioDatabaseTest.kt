@@ -94,7 +94,7 @@ class AurioDatabaseTest {
         repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 45))
         repo.setLimit("ig", 60) // raised mid-day: must not erase today's 15 minutes over
         clock.advanceDays(1)
-        repo.settlePastDays { null }
+        repo.settlePastDays { mapOf("ig" to 45) }
         val entry = db.scores().entriesFor("2026-01-01").single()
         assertEquals(-15, entry.points)
     }
@@ -105,7 +105,7 @@ class AurioDatabaseTest {
         repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("yt" to 50))
         repo.replaceApps(emptyMap())
         clock.advanceDays(1)
-        repo.settlePastDays { null }
+        repo.settlePastDays { mapOf("yt" to 50) }
         assertEquals(-20, db.scores().entriesFor("2026-01-01").single().points)
     }
 
@@ -145,6 +145,41 @@ class AurioDatabaseTest {
         assertTrue(day2.partial)
         assertEquals(0, day2.delta)
         assertTrue(db.scores().entriesFor("2026-01-02").isEmpty())
+    }
+
+    @Test fun morningReadingWithAccessOffAtSettlementIsUnknown() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 5)) // morning, access on
+        clock.advanceDays(1)
+        repo.settlePastDays { null } // access off now: the 5 min was only part of the day
+        assertTrue(db.scores().entriesFor("2026-01-01").isEmpty())
+        val day = db.scores().allDaily().single()
+        assertTrue(day.partial)
+        assertEquals(0, day.delta)
+    }
+
+    @Test fun dayWithAccessSeenOffSettlesUnknownWithoutReadingAndroid() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        clock.advanceDays(1)
+        repo.recordTerms(java.time.LocalDate.parse("2026-01-02"))
+        repo.markAccessOff(java.time.LocalDate.parse("2026-01-02")) // off at some point, back on later
+        clock.advanceDays(1)
+        val asked = mutableListOf<java.time.LocalDate>()
+        repo.settlePastDays { date -> asked += date; mapOf("ig" to 90) }
+        assertEquals(listOf(java.time.LocalDate.parse("2026-01-01")), asked)
+        assertTrue(db.scores().entriesFor("2026-01-02").isEmpty())
+        assertTrue(db.scores().allDaily().single { it.date == "2026-01-02" }.partial)
+    }
+
+    @Test fun uninstalledAppKeepsItsSavedMinutes() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 90))
+        clock.advanceDays(1)
+        repo.settlePastDays { emptyMap() } // Android no longer knows the app
+        assertEquals(-60, db.scores().entriesFor("2026-01-01").single().points)
     }
 
     @Test fun deleteEverythingEmptiesTables() = runBlocking {

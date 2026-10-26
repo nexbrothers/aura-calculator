@@ -9,6 +9,7 @@ import app.aurio.domain.LineKind
 import app.aurio.domain.Settlement
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -142,10 +143,22 @@ class AurioRepository(
     }
 
     /**
+     * Notes that Usage Access was seen off on [date]. That day then settles as Unknown even if
+     * access comes back before midnight, matching what Home showed.
+     */
+    suspend fun markAccessOff(date: LocalDate) {
+        if (db.meta().get(accessOffKey(date)) == null) db.meta().put(AppMetaEntity(accessOffKey(date), "1"))
+    }
+
+    fun accessWasOff(date: LocalDate): Flow<Boolean> = db.meta().observe(accessOffKey(date)).map { it != null }
+
+    private fun accessOffKey(date: LocalDate) = "access_off:$date"
+
+    /**
      * Freezes every finished day that is not settled yet, oldest first, each in one transaction.
      * Safe to call any time and from any thread: a lock keeps the worker and the app apart.
      * [usageProvider] returns real minutes for a past date, or null when they cannot be read
-     * (then stored numbers are used, and a missing number means Unknown).
+     * (then the day is Unknown). It is not called for days with Usage Access seen off (see DayRules).
      */
     suspend fun settlePastDays(usageProvider: (LocalDate) -> Map<String, Int>?) = settleLock.withLock {
         val start = db.meta().get(START_DATE)?.let(LocalDate::parse) ?: return@withLock
@@ -158,13 +171,15 @@ class AurioRepository(
 
         while (date.isBefore(today)) {
             val endOfDay = date.plusDays(1).atStartOfDay(clock.zone()).toInstant().toEpochMilli()
-            val provided = usageProvider(date)
+            val accessWasOff = db.meta().get(accessOffKey(date)) != null
+            val ageDays = java.time.temporal.ChronoUnit.DAYS.between(date, today)
+            val provided = if (DayRules.canReadFullDay(ageDays, accessWasOff)) usageProvider(date) else null
             val rows = db.usageDays().forDate(date.toString())
             val stored = rows.associate { it.packageName to it.minutes }
             val recorded = rows.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
             val current = apps.filter { it.addedAt < endOfDay }.associate { it.packageName to it.terms() }
             val usages = DayRules.appsForDay(recorded, current) { pkg ->
-                if (provided != null) (provided[pkg] ?: 0) else stored[pkg]
+                DayRules.settledMinutes(provided, pkg, stored[pkg])
             }
             val sessions = db.focusSessions().forDate(date.toString()).filter { it.status == "COMPLETED" }
             val day = Settlement.settle(usages, sessions.map { it.creditedMinutes }, total, streak, isFirstDay = date == start)

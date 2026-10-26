@@ -30,6 +30,44 @@ class DayRulesTest {
         assertEquals(limited(20), DayRules.termsAfterEdit(lowered, limited(30)))
     }
 
+    // ---- Which saved minutes count at settlement ----------------------------------------
+
+    @Test fun fullDayReadingAtSettlementIsUsed() {
+        assertEquals(47, DayRules.settledMinutes(mapOf("yt" to 47), "yt", 5))
+    }
+
+    @Test fun appMissingFromFullDayReadingNeverDropsBelowWhatWasSaved() {
+        // Uninstalled before midnight: Android forgets it, but 90 min were already saved.
+        assertEquals(90, DayRules.settledMinutes(emptyMap(), "yt", 90))
+        assertEquals(0, DayRules.settledMinutes(emptyMap(), "yt", null))
+    }
+
+    @Test fun savedReadingAloneIsUnknown() {
+        // Access on in the morning, no full-day reading at settlement: a partial day must not pay +20.
+        assertNull(DayRules.settledMinutes(null, "yt", 5))
+        assertNull(DayRules.settledMinutes(null, "yt", null))
+    }
+
+    @Test fun dayWithAccessSeenOffIsNeverReadBack() {
+        assertEquals(false, DayRules.canReadFullDay(ageDays = 1, accessWasOff = true))
+        assertEquals(true, DayRules.canReadFullDay(ageDays = 1, accessWasOff = false))
+    }
+
+    @Test fun daysOlderThanAndroidKeepsDailyAreNotRead() {
+        assertEquals(true, DayRules.canReadFullDay(DayRules.MAX_READABLE_AGE_DAYS, false))
+        assertEquals(false, DayRules.canReadFullDay(DayRules.MAX_READABLE_AGE_DAYS + 1, false))
+        assertEquals(false, DayRules.canReadFullDay(0, false)) // today is not finished
+    }
+
+    @Test fun partialMorningReadingGivesNoBonus() {
+        val apps = DayRules.appsForDay(mapOf("ig" to limited(30)), emptyMap()) { pkg ->
+            DayRules.settledMinutes(null, pkg, 5)
+        }
+        val day = Settlement.settle(apps, emptyList(), previousTotal = 100, previousStreak = 2, isFirstDay = false)
+        assertEquals(0, day.delta)
+        assertEquals(true, day.partial)
+    }
+
     @Test fun sameLimitChangesNothing() {
         assertEquals(limited(30), DayRules.termsAfterEdit(limited(30), limited(30)))
     }

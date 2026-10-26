@@ -26,8 +26,8 @@ Plans (Claude Docs, read-only context):
 
 ## Known gaps / next
 1. Notification when a focus session ends (alarm + channel; ask POST_NOTIFICATIONS after first completed session).
-2. Settlement can score a stale partial day: if Usage Access was on earlier and is off at settlement, stored
-   minutes are treated as final (can pay +20). Should become Unknown unless the day was fully recorded.
+2. Usage-access edge cases: access off is only noticed while the app or the 6-hour worker runs, so a short
+   gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
 3. Level-up screen / share card, heatmap, 7-day bars per app detail.
 4. Widgets (2x2, 4x1, 4x2) read from the store and refresh on session and midnight; currently 2x2 shows score only.
 5. Room migration tests; usage accuracy check against Android's own screen time for 3 days.
@@ -41,3 +41,9 @@ Plans (Claude Docs, read-only context):
 - usage_day records label, category and limit per app per day the first time the app is seen that day.
 - DayRules: lowering a limit applies today; raising, category changes and removal apply tomorrow.
 - Settlement and Home both score from recorded terms; days with no record fall back to current settings.
+
+## Unknown days
+- If Usage Access is seen off at any point on a day (app_meta key access_off:<date>, set by sync and SettleWorker),
+  that day is Unknown: Home shows Unknown and settlement never reads Android for it.
+- Otherwise a day settles from Android's full-day reading, never below the minutes Aurio saved that day.
+  No full reading (access off at settlement, or the day is more than 7 days old) means Unknown.
