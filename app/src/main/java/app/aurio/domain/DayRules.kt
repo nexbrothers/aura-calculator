@@ -6,8 +6,8 @@ data class AppTerms(val label: String, val category: AppCategory, val limitMinut
 /** Which terms apply to which day. Pure: no Android, no clock, no database. */
 object DayRules {
 
-    /** Android keeps daily usage buckets for about 10 days, then merges them into weekly ones. */
-    const val MAX_READABLE_AGE_DAYS = 7L
+    /** Android keeps about 10 days of usage events (less on some phones); a day also needs 6 hours before it. */
+    const val MAX_READABLE_AGE_DAYS = 6L
 
     /**
      * Whether a finished day can be read in full from Android at settlement. A day on which Usage

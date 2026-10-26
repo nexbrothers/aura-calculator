@@ -30,7 +30,9 @@ Plans (Claude Docs, read-only context):
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
 3. Level-up screen / share card, heatmap, 7-day bars per app detail.
 4. Widgets (2x2, 4x1, 4x2) read from the store and refresh on session and midnight; currently 2x2 shows score only.
-5. Room migration tests; usage accuracy check against Android's own screen time for 3 days.
+5. Run device tests (connectedDebugAndroidTest). Compare Aurio's minutes with the phone's own screen-time page
+   for 3 days now that usage is read from events. Known small gaps: picture-in-picture is not counted, and a
+   screen woken without a new resume (call proximity blanking) loses the time after wake.
 6. Open rule decisions (recommendations in use): streak = focus session OR all limits kept; usage-off day = Unknown;
    phone-free = timer completion; session crossing midnight credits the end day.
 7. Product question: a Limited app is scored from the day it is added, and removal applies tomorrow, so adding
@@ -46,4 +48,9 @@ Plans (Claude Docs, read-only context):
 - If Usage Access is seen off at any point on a day (app_meta key access_off:<date>, set by sync and SettleWorker),
   that day is Unknown: Home shows Unknown and settlement never reads Android for it.
 - Otherwise a day settles from Android's full-day reading, never below the minutes Aurio saved that day.
-  No full reading (access off at settlement, or the day is more than 7 days old) means Unknown.
+  No full reading (access off at settlement, or the day is more than 6 days old) means Unknown.
+
+## Usage minutes
+- Read from UsageStatsManager.queryEvents (6 h lookback), summed by domain/ForegroundTime.kt and cut exactly
+  at local midnight. Only RESUMED/PAUSED, screen off, shutdown and startup events are used; STOPPED is ignored.
+- Activity names are hashed immediately in UsageAccess; nothing but minutes per package is stored.

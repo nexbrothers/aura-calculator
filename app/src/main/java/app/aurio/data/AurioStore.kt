@@ -18,6 +18,7 @@ import app.aurio.domain.FocusSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,6 +68,7 @@ data class AurioState(
 object AurioStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var app: AurioApplication? = null
+    @Volatile private var syncJob: Job? = null
 
     private val _state = MutableStateFlow(AurioState())
     val state: StateFlow<AurioState> = _state.asStateFlow()
@@ -126,8 +128,10 @@ object AurioStore {
      * then record today's numbers.
      */
     fun sync(context: Context) {
+        // Reading a day of usage events can be slow; never stack a second read behind it.
+        if (syncJob?.isActive == true) return
         val granted = UsageAccess.isGranted(context) || DebugTime.enabled
-        scope.launch {
+        syncJob = scope.launch {
             val r = repo
             r.reconcileFocus()
             r.settlePastDays { date ->
