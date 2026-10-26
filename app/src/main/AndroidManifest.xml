@@ -7,6 +7,12 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Focus timer: notify on time even when Aurio is closed. Off by default on Android 14+ (then the
+         notification may be a few minutes late; the aura credit never depends on it). Not USE_EXACT_ALARM:
+         Play reserves that for apps whose core function is an alarm or timer. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Alarms are cleared on restart; this restores a running session's end-time alarm. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Aurio has no INTERNET permission on purpose: nothing leaves the phone. -->
 
@@ -37,6 +43,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".focus.FocusEndReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".work.MidnightReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".widget.AuraWidgetReceiver"

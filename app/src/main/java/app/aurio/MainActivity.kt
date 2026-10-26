@@ -27,9 +27,14 @@ class MainActivity : ComponentActivity() {
         // permission change when the user returns from Settings, and rolls the day over.
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    AurioStore.sync(this@MainActivity)
-                    delay(60_000)
+                AurioStore.visible = true
+                try {
+                    while (true) {
+                        AurioStore.sync(this@MainActivity)
+                        delay(60_000)
+                    }
+                } finally {
+                    AurioStore.visible = false
                 }
             }
         }

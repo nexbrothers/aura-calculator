@@ -2,6 +2,7 @@ package app.aurio.data
 
 import app.aurio.data.db.*
 import app.aurio.domain.AppCategory
+import app.aurio.domain.AuraScoring
 import app.aurio.domain.AurioClock
 import app.aurio.domain.DayRules
 import app.aurio.domain.FocusSession
@@ -117,18 +118,51 @@ class AurioRepository(
         return row.copy(id = db.focusSessions().insert(row))
     }
 
-    /** Ending early never costs aura; it just credits nothing. */
-    suspend fun endFocusEarly(id: Long) =
-        db.focusSessions().finish(id, "ENDED_EARLY", 0, clock.today().toString())
+    // Completing a session shares the settlement lock: a session must never be credited to a day
+    // that settles without it.
 
-    suspend fun completeFocus(session: FocusSessionEntity) =
-        db.focusSessions().finish(session.id, "COMPLETED", session.plannedMinutes, dateOf(session.endsAt).toString())
-
-    /** A running session whose end time passed while the app was closed is completed now. */
-    suspend fun reconcileFocus() {
-        val r = db.focusSessions().running() ?: return
-        if (r.endsAt <= clock.nowMillis()) completeFocus(r)
+    /**
+     * Ends a session early: never costs aura, credits nothing. A session whose time is already up
+     * is completed instead (a tap on End as the timer reaches zero must not lose the credit).
+     */
+    suspend fun endFocusEarly(session: FocusSessionEntity): FocusResult = settleLock.withLock {
+        if (session.endsAt <= clock.nowMillis()) return@withLock completeLocked(session)
+        db.focusSessions().finish(session.id, "ENDED_EARLY", 0, clock.today().toString())
+        FocusResult(session.plannedMinutes, earned = 0, justCompleted = false, completed = false)
     }
+
+    /**
+     * Completes [session] once its end time has passed, and returns the aura it earned within the
+     * daily focus cap. Safe to call twice: the end-time alarm and the timer screen may both try.
+     */
+    suspend fun completeFocus(session: FocusSessionEntity): FocusResult = settleLock.withLock { completeLocked(session) }
+
+    /** A running session whose end time has passed is completed now; null if there was none. */
+    suspend fun reconcileFocus(): FocusResult? = settleLock.withLock { reconcileLocked() }
+
+    private suspend fun reconcileLocked(): FocusResult? {
+        val r = db.focusSessions().running() ?: return null
+        return if (r.endsAt <= clock.nowMillis()) completeLocked(r) else null
+    }
+
+    private suspend fun completeLocked(session: FocusSessionEntity): FocusResult = db.withTransaction {
+        // Credited to the day it ended, unless that day has already settled (for example after
+        // travelling west across midnight); then to the first day still open.
+        val firstOpen = db.scores().lastDaily()?.let { LocalDate.parse(it.date).plusDays(1) }
+        val ended = dateOf(session.endsAt)
+        val date = (if (firstOpen != null && ended.isBefore(firstOpen)) firstOpen else ended).toString()
+        val justCompleted = session.endsAt <= clock.nowMillis() &&
+            db.focusSessions().finish(session.id, "COMPLETED", session.plannedMinutes, date) == 1
+        val row = db.focusSessions().get(session.id)
+        if (row?.status != "COMPLETED") {
+            return@withTransaction FocusResult(session.plannedMinutes, earned = 0, justCompleted = false, completed = false)
+        }
+        val completed = db.focusSessions().forDate(row.date).filter { it.status == "COMPLETED" }
+        val earned = AuraScoring.earnedBy(completed.map { it.creditedMinutes }, completed.indexOfFirst { it.id == session.id })
+        FocusResult(session.plannedMinutes, earned, justCompleted, completed = true)
+    }
+
+    suspend fun runningFocus(): FocusSessionEntity? = db.focusSessions().running()
 
     fun timeLabel(millis: Long): String =
         SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(millis)).lowercase()
@@ -161,6 +195,8 @@ class AurioRepository(
      * (then the day is Unknown). It is not called for days with Usage Access seen off (see DayRules).
      */
     suspend fun settlePastDays(usageProvider: (LocalDate) -> Map<String, Int>?) = settleLock.withLock {
+        // A session that ended before now belongs to a day about to settle: complete it first.
+        reconcileLocked()
         val start = db.meta().get(START_DATE)?.let(LocalDate::parse) ?: return@withLock
         val today = clock.today()
         val last = db.scores().lastDaily()
@@ -237,3 +273,9 @@ class AurioRepository(
         private const val START_DATE = "start_date"
     }
 }
+
+/**
+ * How a focus session ended. [completed] is its final state (false: ended early or not yet due);
+ * [justCompleted] is true only for the call that completed it, which is the one to announce it.
+ */
+data class FocusResult(val minutes: Int, val earned: Int, val justCompleted: Boolean, val completed: Boolean)

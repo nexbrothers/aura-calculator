@@ -29,6 +29,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
+import app.aurio.focus.FocusAlarm
+import app.aurio.focus.FocusNotifications
 import java.time.LocalDate
 
 /** Everything the screens show, derived from what is saved on the phone. */
@@ -69,6 +71,9 @@ object AurioStore {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var app: AurioApplication? = null
     @Volatile private var syncJob: Job? = null
+
+    /** True while Aurio is on screen; it then shows a completed session itself, so no notification. */
+    @Volatile var visible: Boolean = false
 
     private val _state = MutableStateFlow(AurioState())
     val state: StateFlow<AurioState> = _state.asStateFlow()
@@ -134,6 +139,8 @@ object AurioStore {
         syncJob = scope.launch {
             val r = repo
             r.reconcileFocus()
+            // Android drops pending alarms when exact alarms are turned off or the app is force-stopped.
+            r.runningFocus()?.let { FocusAlarm.schedule(app!!, it.endsAt) }
             r.settlePastDays { date ->
                 when {
                     DebugTime.enabled -> DebugTime.usageByDate[date] ?: emptyMap()
@@ -175,16 +182,29 @@ object AurioStore {
 
     suspend fun startFocus(minutes: Int) {
         val row = repo.startFocus(minutes)
+        FocusAlarm.schedule(app!!, row.endsAt)
         // Show it at once; the database flow will confirm a moment later.
         _state.update { it.copy(running = row) }
     }
 
-    suspend fun completeFocus(session: FocusSessionEntity) = repo.completeFocus(session)
-
-    suspend fun endFocusEarly(id: Long) {
-        repo.endFocusEarly(id)
-        _state.update { it.copy(running = null) }
+    /** Completes the session (if the end-time alarm has not already) and returns what it earned. */
+    suspend fun completeFocus(session: FocusSessionEntity): FocusResult {
+        FocusAlarm.cancel(app!!)
+        return repo.completeFocus(session)
     }
+
+    /** Ends the session; if its time was already up it completes instead (see the result). */
+    suspend fun endFocusEarly(session: FocusSessionEntity): FocusResult {
+        FocusAlarm.cancel(app!!)
+        val result = repo.endFocusEarly(session)
+        _state.update { it.copy(running = null) }
+        return result
+    }
+
+    fun setFocusReminders(on: Boolean) { scope.launch { settingsStore.setFocusReminders(on) } }
+
+    /** The notification permission is asked once, after the first completed session. */
+    fun setNotificationPromptSeen() { scope.launch { settingsStore.setNotificationPromptSeen() } }
 
     // ---- Settings ------------------------------------------------------------------------
 
@@ -195,6 +215,8 @@ object AurioStore {
     suspend fun exportJson(): String = repo.exportJson()
 
     fun deleteAllData() {
+        FocusAlarm.cancel(app!!)
+        FocusNotifications.clear(app!!)
         scope.launch {
             repo.deleteEverything()
             settingsStore.clear()

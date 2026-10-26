@@ -331,6 +331,8 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
                     }
                 }
             }
+            RowDivider()
+            ToggleRow("Session complete", "A notification when a focus session ends", state.settings.focusReminders) { AurioStore.setFocusReminders(it) }
         }
 
         Text("Look", style = AurioType.title, modifier = Modifier.padding(top = 28.dp, bottom = 10.dp))

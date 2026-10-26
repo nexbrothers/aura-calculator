@@ -64,11 +64,18 @@ interface FocusSessionDao {
     @Insert
     suspend fun insert(s: FocusSessionEntity): Long
 
-    @Query("UPDATE focus_session SET status = :status, creditedMinutes = :credited, date = :date WHERE id = :id")
-    suspend fun finish(id: Long, status: String, credited: Int, date: String)
+    /**
+     * Ends a session that is still running; returns 1 if it was, 0 if something else already
+     * ended it (the end-time alarm and the open timer screen can race).
+     */
+    @Query("UPDATE focus_session SET status = :status, creditedMinutes = :credited, date = :date WHERE id = :id AND status = 'RUNNING'")
+    suspend fun finish(id: Long, status: String, credited: Int, date: String): Int
 
     @Query("SELECT * FROM focus_session WHERE status = 'RUNNING' LIMIT 1")
     suspend fun running(): FocusSessionEntity?
+
+    @Query("SELECT * FROM focus_session WHERE id = :id")
+    suspend fun get(id: Long): FocusSessionEntity?
 
     @Query("SELECT * FROM focus_session WHERE date = :date ORDER BY startedAt")
     fun observeDate(date: String): Flow<List<FocusSessionEntity>>

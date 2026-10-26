@@ -49,15 +49,111 @@ class AurioDatabaseTest {
         val running = db.focusSessions().running()!!
         assertEquals(clock.nowMillis() + 25 * 60_000L, running.endsAt)
         assertEquals(started.id, running.id)
+        clock.advanceMinutes(25)
         repo.completeFocus(started)
         assertNull(db.focusSessions().running())
         assertEquals(25, db.focusSessions().forDate("2026-01-01").single().creditedMinutes)
     }
 
+    @Test fun alarmAndTimerScreenCompletingTogetherCountsOnce() = runBlocking {
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(25)
+        val first = repo.completeFocus(s)
+        val second = repo.completeFocus(s)
+        assertTrue(first.justCompleted)
+        assertFalse(second.justCompleted)
+        assertEquals(25, first.earned)
+        assertEquals(25, second.earned) // the screen still shows the right number
+        assertEquals(1, db.focusSessions().forDate("2026-01-01").count { it.status == "COMPLETED" })
+    }
+
+    private suspend fun runSession(minutes: Int): FocusResult {
+        val s = repo.startFocus(minutes)
+        clock.advanceMinutes(minutes.toLong())
+        return repo.completeFocus(s)
+    }
+
+    @Test fun earnedRespectsTheDailyCap() = runBlocking {
+        assertEquals(60, runSession(60).earned)
+        assertEquals(30, runSession(30).earned)
+        assertEquals(10, runSession(25).earned) // hits the 100 cap partway
+        assertEquals(0, runSession(25).earned)
+    }
+
+    @Test fun endingAfterTheAlarmCompletedKeepsTheCredit() = runBlocking {
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(25)
+        repo.completeFocus(s)
+        clock.advanceMinutes(1)
+        assertTrue(repo.endFocusEarly(s).completed)
+        assertEquals(25, db.focusSessions().forDate("2026-01-01").single().creditedMinutes)
+    }
+
     @Test fun endingEarlyCreditsNothing() = runBlocking {
-        val id = repo.startFocus(25).id
-        repo.endFocusEarly(id)
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(10)
+        assertFalse(repo.endFocusEarly(s).completed)
         assertEquals(0, db.focusSessions().forDate("2026-01-01").single().creditedMinutes)
+    }
+
+    @Test fun endingAtZeroCompletesInsteadOfLosingTheCredit() = runBlocking {
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(25)
+        val result = repo.endFocusEarly(s)
+        assertTrue(result.completed)
+        assertEquals(25, result.earned)
+    }
+
+    @Test fun completingBeforeTheEndTimeIsRefused() = runBlocking {
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(24)
+        val result = repo.completeFocus(s)
+        assertFalse(result.completed)
+        assertEquals("RUNNING", db.focusSessions().get(s.id)!!.status)
+    }
+
+    @Test fun endThenCompleteReportsNotCompleted() = runBlocking {
+        val s = repo.startFocus(25)
+        clock.advanceMinutes(5)
+        repo.endFocusEarly(s)
+        clock.advanceMinutes(20)
+        val result = repo.completeFocus(s)
+        assertFalse(result.completed)
+        assertEquals(0, db.focusSessions().get(s.id)!!.creditedMinutes)
+    }
+
+    @Test fun sessionEndingJustBeforeMidnightIsInThatDaysSettlement() = runBlocking {
+        repo.markStartDate()
+        clock.advanceMinutes(23 * 60 + 30)
+        val s = repo.startFocus(25) // ends 23:55 on 2026-01-01, still running
+        clock.advanceMinutes(40)    // 00:10 next day; nobody completed it yet
+        repo.settlePastDays { emptyMap() }
+        assertEquals("COMPLETED", db.focusSessions().get(s.id)!!.status)
+        assertEquals(25, db.scores().entriesFor("2026-01-01").single { it.kind == "FOCUS" }.points)
+    }
+
+    @Test fun sessionCompletedAfterItsDaySettledGoesToTheNextOpenDay() = runBlocking {
+        repo.markStartDate()
+        val s = repo.startFocus(25)
+        clock.advanceDays(1)
+        // Settle day 1 without the session, as if the clock had been moved back while it ran.
+        db.focusSessions().finish(s.id, "PAUSED_FOR_TEST", 0, "2026-01-01")
+        repo.settlePastDays { emptyMap() }
+        db.focusSessions().insert(s.copy(id = 0, status = "RUNNING"))
+        val late = db.focusSessions().running()!!
+        val result = repo.completeFocus(late)
+        assertTrue(result.completed)
+        assertEquals("2026-01-02", db.focusSessions().get(late.id)!!.date)
+        assertEquals(25, result.earned)
+    }
+
+    @Test fun earnedShownMatchesWhatSettlementCredits() = runBlocking {
+        repo.markStartDate()
+        val shown = listOf(runSession(60).earned, runSession(30).earned, runSession(25).earned)
+        clock.advanceDays(1)
+        repo.settlePastDays { emptyMap() }
+        val credited = db.scores().entriesFor("2026-01-01").filter { it.kind == "FOCUS" }.map { it.points }
+        assertEquals(shown, credited)
     }
 
     // ---- Terms that applied each day (DayRules) ------------------------------------------

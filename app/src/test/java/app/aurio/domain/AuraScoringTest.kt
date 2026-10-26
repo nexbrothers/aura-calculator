@@ -5,6 +5,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AuraScoringTest {
+    @Test fun sessionThatHitsTheCapPartwayEarnsTheRest() {
+        val day = listOf(60, 30, 25)
+        assertEquals(60, AuraScoring.earnedBy(day, 0))
+        assertEquals(30, AuraScoring.earnedBy(day, 1))
+        assertEquals(10, AuraScoring.earnedBy(day, 2))
+        assertEquals(0, AuraScoring.earnedBy(day, -1)) // not among the day's completed sessions
+    }
+
 
     private fun limited(used: Int?, limit: Int, label: String = "App") =
         AppUsage("pkg.$label", label, AppCategory.LIMITED, used, limit)

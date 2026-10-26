@@ -25,7 +25,9 @@ Plans (Claude Docs, read-only context):
 - DB tests are in `src/androidTest` (run on a device). Scoring/settlement tests are in `src/test`.
 
 ## Known gaps / next
-1. Notification when a focus session ends (alarm + channel; ask POST_NOTIFICATIONS after first completed session).
+1. Focus follow-ups: no in-app link to Android 14+ exact-alarm settings (notification can be minutes late);
+   reopening after the alarm completed a session lands on Focus, not the complete screen; "left to earn" on the
+   timer uses today even when the session will end tomorrow; zones with DST at midnight are untested.
 2. Usage-access edge cases: access off is only noticed while the app or the 6-hour worker runs, so a short
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
 3. Level-up screen / share card, heatmap, 7-day bars per app detail.
@@ -49,6 +51,14 @@ Plans (Claude Docs, read-only context):
   that day is Unknown: Home shows Unknown and settlement never reads Android for it.
 - Otherwise a day settles from Android's full-day reading, never below the minutes Aurio saved that day.
   No full reading (access off at settlement, or the day is more than 6 days old) means Unknown.
+
+## Focus end and midnight
+- FocusAlarm books an alarm at the session end (exact if allowed). FocusEndReceiver completes an overdue session
+  and posts "Session complete" only if it completed it and Aurio is not on screen. Re-armed on boot and app open.
+- Completing, ending and settling share one lock; settlement completes overdue sessions first. A session is never
+  credited to a settled day (goes to the next open day). End after the time is up completes the session.
+- MidnightAlarm (inexact, 00:05 local) starts SettleWorker and re-books itself; also re-booked on boot, clock and
+  time-zone change. A 6-hour periodic SettleWorker is the backup.
 
 ## Usage minutes
 - Read from UsageStatsManager.queryEvents (6 h lookback), summed by domain/ForegroundTime.kt and cut exactly

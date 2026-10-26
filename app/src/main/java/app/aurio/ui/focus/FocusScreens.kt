@@ -1,5 +1,16 @@
 package app.aurio.ui.focus
 
+import app.aurio.ui.theme.AurioTheme
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.os.Build
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -181,9 +192,10 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
             delay(250)
         }
         finished = true
-        val credit = AuraScoring.potentialFocus(AurioStore.state.value.sessions.map { it.minutes }, running.plannedMinutes)
-        AurioStore.completeFocus(running)
-        onComplete(credit)
+        // Correct even if the end-time alarm completed the session a moment earlier. If End won
+        // the race the session is not complete, so do not celebrate it.
+        val result = AurioStore.completeFocus(running)
+        if (result.completed) onComplete(result.earned) else onEndEarly()
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -223,10 +235,56 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
             Spacer(Modifier.height(14.dp))
             SecondaryButton("End session", {
                 finished = true
-                scope.launch { AurioStore.endFocusEarly(running.id); onEndEarly() }
+                scope.launch {
+                    val result = AurioStore.endFocusEarly(running)
+                    if (result.completed) onComplete(result.earned) else onEndEarly()
+                }
             }, container = Color.White.copy(alpha = 0.85f))
         }
     }
+}
+
+/**
+ * Asked once, right after the first completed session, when the reason is obvious. Android 13+
+ * only; older versions allow notifications by default. Answering either way hides it for good.
+ */
+@Composable
+private fun NotificationPrompt(visible: Boolean) {
+    val context = LocalContext.current
+    val needed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { AurioStore.setNotificationPromptSeen() }
+    if (!visible || !needed) return
+    NotificationPromptCard(
+        onTurnOn = { ask.launch(Manifest.permission.POST_NOTIFICATIONS) },
+        onNotNow = { AurioStore.setNotificationPromptSeen() },
+    )
+}
+
+@Composable
+private fun NotificationPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = AurioSpacing.md).clip(RoundedCornerShape(AurioRadius.card))
+            .background(AurioColors.Surface).padding(18.dp),
+    ) {
+        Text("Know when a session ends", style = AurioType.bodyStrong)
+        Spacer(Modifier.height(AurioSpacing.xs))
+        Text("Aurio can tell you when your timer is done, even with the app closed.", style = AurioType.caption, color = AurioColors.InkSubtle)
+        Row(Modifier.fillMaxWidth().padding(top = AurioSpacing.sm), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onNotNow, modifier = Modifier.heightIn(min = AurioSpacing.touchMin)) {
+                Text("Not now", style = AurioType.label, color = AurioColors.InkMuted)
+            }
+            TextButton(onClick = onTurnOn, modifier = Modifier.heightIn(min = AurioSpacing.touchMin)) {
+                Text("Turn on notifications", style = AurioType.label, color = AurioColors.Ink)
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun NotificationPromptCardPreview() {
+    AurioTheme { NotificationPromptCard(onTurnOn = {}, onNotNow = {}) }
 }
 
 private fun secondsLeft(endsAt: Long): Int = ((endsAt - app.aurio.domain.SystemAurioClock.nowMillis() + 999) / 1000).toInt().coerceAtLeast(0)
@@ -255,6 +313,7 @@ fun SessionCompleteScreen(earned: Int, onHome: () -> Unit, onAgain: () -> Unit) 
             Spacer(Modifier.height(10.dp))
             ProgressBar(state.daily.focusAura / 100f, color = AurioColors.Gain, track = AurioColors.GainBg, height = 8.dp)
         }
+        NotificationPrompt(visible = state.loaded && !state.settings.notificationPromptSeen && state.settings.focusReminders)
         Spacer(Modifier.weight(1f))
         PrimaryButton("Back to home", onHome)
         Spacer(Modifier.height(8.dp))

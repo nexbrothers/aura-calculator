@@ -74,6 +74,12 @@ object AuraScoring {
         }
     }
 
+    /**
+     * Aura the session at [index] earned among a day's completed sessions in start order, the same
+     * order settlement credits them in; 0 if it is not among them.
+     */
+    fun earnedBy(sessionMinutes: List<Int>, index: Int): Int = focusEarnings(sessionMinutes).getOrNull(index) ?: 0
+
     /** What a new session of [minutes] would add, given sessions already completed today. */
     fun potentialFocus(sessionMinutes: List<Int>, minutes: Int): Int {
         val already = focusEarnings(sessionMinutes).sum()
