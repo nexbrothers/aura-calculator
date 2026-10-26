@@ -66,7 +66,10 @@ object UsageAccess {
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
             val kind = kindOf(e.eventType) ?: continue
-            list += ForegroundEvent(e.timeStamp, e.packageName, e.className.hashCode(), kind)
+            // Screen and device events carry no activity, and Android may leave the package out too.
+            val pkg: String = e.packageName ?: continue
+            val screen = (e.className as String?)?.hashCode() ?: 0
+            list += ForegroundEvent(e.timeStamp, pkg, screen, kind)
         }
         return ForegroundTime.perPackage(list, readFrom, start, end).mapValues { (_, ms) -> (ms / 60_000L).toInt() }
     }
