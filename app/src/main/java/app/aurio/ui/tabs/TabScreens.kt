@@ -1,6 +1,7 @@
 package app.aurio.ui.tabs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +60,7 @@ import app.aurio.data.AurioStore
 import app.aurio.domain.AppCategory
 import app.aurio.domain.AppTerms
 import app.aurio.ui.theme.AurioTheme
+import app.aurio.ui.insights.AuraCalendar
 import androidx.compose.ui.tooling.preview.Preview
 import app.aurio.domain.AppUsage
 import app.aurio.domain.AuraScoring
@@ -96,7 +98,8 @@ private fun TabPage(title: String, action: (@Composable () -> Unit)? = null, con
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LimitsScreen(onManageApps: () -> Unit) {
+fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
+    fun open(app: AppUsage) = Modifier.clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) }
     val state by AurioStore.state.collectAsStateWithLifecycle()
     var seg by rememberSaveable { mutableIntStateOf(0) }
     val cats = listOf(AppCategory.LIMITED to "Limited", AppCategory.NEUTRAL to "Neutral", AppCategory.ESSENTIAL to "Essential")
@@ -125,7 +128,7 @@ fun LimitsScreen(onManageApps: () -> Unit) {
                     val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(horizontal = AurioSpacing.lg)) {
                         val saved = state.tracked[app.packageName]
-                        LimitRow(usage)
+                        LimitRow(usage, open(app))
                         Row(Modifier.fillMaxWidth().padding(bottom = AurioSpacing.md), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             when (val s = AuraScoring.limitStatus(usage)) {
                                 is LimitStatus.Under -> Pill("+${s.projectedBonus} at midnight", PillTone.PROJECTED)
@@ -134,7 +137,7 @@ fun LimitsScreen(onManageApps: () -> Unit) {
                             }
                             val savedLimit = saved?.limitMinutes
                             if (saved?.category == AppCategory.LIMITED && savedLimit != null) {
-                                Stepper(savedLimit, app.label,
+                                LimitStepper(savedLimit, app.label,
                                     onDec = { AurioStore.setLimit(app.packageName, savedLimit - 5) },
                                     onInc = { AurioStore.setLimit(app.packageName, savedLimit + 5) })
                             }
@@ -146,7 +149,7 @@ fun LimitsScreen(onManageApps: () -> Unit) {
         } else {
             GroupedList {
                 apps.forEachIndexed { i, app ->
-                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null))
+                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app))
                     tomorrowNote(app, state.tracked[app.packageName])?.let { PendingNote(it) }
                     if (i < apps.lastIndex) RowDivider()
                 }
@@ -196,7 +199,7 @@ private fun RuleRow(amount: String, tone: PillTone, text: String) {
 }
 
 @Composable
-private fun Stepper(value: Int, appLabel: String, onDec: () -> Unit, onInc: () -> Unit) {
+internal fun LimitStepper(value: Int, appLabel: String, onDec: () -> Unit, onInc: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         StepButton("−", "Decrease $appLabel limit", onDec)
         Text("$value min", style = AurioType.title.copy(fontSize = 18.sp), textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 72.dp))
@@ -243,6 +246,8 @@ fun InsightsScreen() {
             StatCard("Best streak", if (state.bestStreak == 1) "1 day" else "${state.bestStreak} days", Modifier.weight(1f))
             StatCard("Days tracked", "${state.history.size}", Modifier.weight(1f))
         }
+        Text("Your aura by day", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = 10.dp))
+        AuraCalendar(state.history, today)
         Text("Today, line by line", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = 10.dp))
         GroupedList {
             if (state.daily.lines.isEmpty()) {

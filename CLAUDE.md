@@ -36,8 +36,8 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 - Respect reduced motion: pass `animate = false` to `AuraField` when animations are disabled.
 
 ## Roadmap (not built yet)
-Onboarding (4 steps), splash, app detail, insights calendar heatmap, level-up + share card, Plus paywall,
-4×1 and 4×2 widgets + aura bitmap in widgets, notifications, focus foreground service, persistence (DataStore/Room), midnight settlement worker (WorkManager).
+Splash, level-up + share card, Plus paywall,
+4×1 and 4×2 widgets + aura bitmap in widgets, limit-warning notifications, focus foreground service.
 
 ## Working agreements for Claude
 - Use the `aurio-design-system` skill before any UI work and the `compose-screen` skill for new screens.

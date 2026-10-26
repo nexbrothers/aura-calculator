@@ -1,12 +1,14 @@
 package app.aurio.data
 
 import android.content.Context
+import android.util.Log
 import app.aurio.AurioApplication
 import app.aurio.data.db.DailyScoreEntity
 import app.aurio.data.db.FocusSessionEntity
 import app.aurio.data.db.UsageDayEntity
 import app.aurio.data.db.terms
 import app.aurio.domain.AppTerms
+import app.aurio.domain.DayRecord
 import app.aurio.domain.DayRules
 import app.aurio.data.settings.Settings
 import app.aurio.domain.AppCategory
@@ -15,11 +17,13 @@ import app.aurio.domain.AuraLevel
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.DailyScore
 import app.aurio.domain.FocusSession
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -137,26 +141,38 @@ object AurioStore {
         if (syncJob?.isActive == true) return
         val granted = UsageAccess.isGranted(context) || DebugTime.enabled
         syncJob = scope.launch {
-            val r = repo
-            r.reconcileFocus()
-            // Android drops pending alarms when exact alarms are turned off or the app is force-stopped.
-            r.runningFocus()?.let { FocusAlarm.schedule(app!!, it.endsAt) }
-            r.settlePastDays { date ->
-                when {
-                    DebugTime.enabled -> DebugTime.usageByDate[date] ?: emptyMap()
-                    granted -> UsageAccess.minutesForDate(context, date)
-                    else -> null
-                }
+            try {
+                syncOnce(context, granted)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A failed read must never crash the app or mark a day Unknown. Each day settles in
+                // one transaction, so stopping here is safe; the next sync (a minute later) retries.
+                Log.w("AurioStore", "Sync failed; will retry", e)
             }
-            val day = SystemAurioClock.today()
-            if (!granted) r.markAccessOff(day)
-            r.recordTerms(day)
-            today.value = day
-            usageAccess.value = granted
-            if (granted) {
-                val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day)
-                r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
+        }
+    }
+
+    private suspend fun syncOnce(context: Context, granted: Boolean) {
+        val r = repo
+        r.reconcileFocus()
+        // Android drops pending alarms when exact alarms are turned off or the app is force-stopped.
+        r.runningFocus()?.let { FocusAlarm.schedule(app!!, it.endsAt) }
+        r.settlePastDays { date ->
+            when {
+                DebugTime.enabled -> DebugTime.usageByDate[date] ?: emptyMap()
+                granted -> UsageAccess.minutesForDate(context, date)
+                else -> null
             }
+        }
+        val day = SystemAurioClock.today()
+        if (!granted) r.markAccessOff(day)
+        r.recordTerms(day)
+        today.value = day
+        usageAccess.value = granted
+        if (granted) {
+            val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day)
+            r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
         }
     }
 
@@ -177,6 +193,22 @@ object AurioStore {
     fun saveApps(chosen: Map<String, Pair<String, AppCategory>>) { scope.launch { repo.replaceApps(chosen) } }
 
     fun setLimit(packageName: String, minutes: Int) { scope.launch { repo.setLimit(packageName, minutes) } }
+
+    /** Moves an app to another category. Like any loosening edit, it applies from tomorrow (DayRules). */
+    fun setCategory(packageName: String, category: AppCategory) {
+        val saved = state.value.tracked[packageName] ?: return
+        scope.launch { repo.saveApp(packageName, saved.label, category, saved.limitMinutes) }
+    }
+
+    /** The last 7 days of one app, today included (today's bar comes from the live state). */
+    fun appWeek(packageName: String): Flow<List<DayRecord>> =
+        repo.appRecords(packageName, SystemAurioClock.today().minusDays(6))
+
+    /** One app's settled aura over the 7 days before today. */
+    fun appPointsLastWeek(packageName: String): Flow<List<Int>> {
+        val today = SystemAurioClock.today()
+        return repo.appPoints(packageName, today.minusDays(7), today)
+    }
 
     // ---- Focus ---------------------------------------------------------------------------
 

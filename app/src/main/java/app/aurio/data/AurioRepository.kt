@@ -4,6 +4,7 @@ import app.aurio.data.db.*
 import app.aurio.domain.AppCategory
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.AurioClock
+import app.aurio.domain.DayRecord
 import app.aurio.domain.DayRules
 import app.aurio.domain.FocusSession
 import app.aurio.domain.LineKind
@@ -40,6 +41,14 @@ class AurioRepository(
     fun history(): Flow<List<DailyScoreEntity>> = db.scores().observeSince(clock.today().minusDays(365).toString())
     fun usageFor(date: LocalDate): Flow<List<UsageDayEntity>> = db.usageDays().observeDate(date.toString())
     fun focusFor(date: LocalDate): Flow<List<FocusSessionEntity>> = db.focusSessions().observeDate(date.toString())
+
+    /** One app's saved days from [from] on (app detail). */
+    fun appRecords(pkg: String, from: LocalDate): Flow<List<DayRecord>> =
+        db.usageDays().observeApp(pkg, from.toString()).map { rows -> rows.map { DayRecord(LocalDate.parse(it.date), it.minutes, it.terms()) } }
+
+    /** One app's settled aura points for days in [from, until). */
+    fun appPoints(pkg: String, from: LocalDate, until: LocalDate): Flow<List<Int>> =
+        db.scores().observePointsFor(pkg, from.toString(), until.toString())
 
     // ---- Tracked apps -------------------------------------------------------------------
 
@@ -221,6 +230,13 @@ class AurioRepository(
             val day = Settlement.settle(usages, sessions.map { it.creditedMinutes }, total, streak, isFirstDay = date == start)
             val settledAt = clock.nowMillis()
             db.withTransaction {
+                // Freeze the day's usage as it was scored, so history shows the same minutes
+                // (or Unknown) and terms the score came from, not the last reading during the day.
+                usages.forEach { u ->
+                    db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), u.packageName, null, settledAt, u.label, u.category.name, u.limitMinutes.takeIf { u.category == AppCategory.LIMITED }))
+                    db.usageDays().fillTerms(date.toString(), u.packageName, u.label, u.category.name, u.limitMinutes.takeIf { u.category == AppCategory.LIMITED })
+                    db.usageDays().setMinutes(date.toString(), u.packageName, u.usedMinutes, settledAt)
+                }
                 db.scores().insertEntries(day.entries.map {
                     ScoreEntryEntity(date = date.toString(), kind = it.kind.name, packageName = it.packageName, points = it.points, note = it.note)
                 })

@@ -30,7 +30,8 @@ Plans (Claude Docs, read-only context):
    timer uses today even when the session will end tomorrow; zones with DST at midnight are untested.
 2. Usage-access edge cases: access off is only noticed while the app or the 6-hour worker runs, so a short
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
-3. Level-up screen / share card, heatmap, 7-day bars per app detail.
+3. Level-up screen / share card. App detail and the Insights heatmap are built but not yet checked by eye on a
+   phone with real history.
 4. Widgets (2x2, 4x1, 4x2) read from the store and refresh on session and midnight; currently 2x2 shows score only.
 5. Run device tests (connectedDebugAndroidTest). Compare Aurio's minutes with the phone's own screen-time page
    for 3 days now that usage is read from events. Known small gaps: picture-in-picture is not counted, and a
@@ -59,6 +60,12 @@ Plans (Claude Docs, read-only context):
   credited to a settled day (goes to the next open day). End after the time is up completes the session.
 - MidnightAlarm (inexact, 00:05 local) starts SettleWorker and re-books itself; also re-booked on boot, clock and
   time-zone change. A 6-hour periodic SettleWorker is the backup.
+
+## App detail and history
+- Route app/{pkg}, opened from Limits and Home. 7-day bars use domain/History.week; each bar is judged by the
+  limit that applied that day. Settlement now writes each day's final minutes (or Unknown) back to usage_day,
+  so history shows what the score came from.
+- Insights has a month calendar (ui/insights/AuraCalendar.kt) tinted by the level each settled day ended on.
 
 ## Usage minutes
 - Read from UsageStatsManager.queryEvents (6 h lookback), summed by domain/ForegroundTime.kt and cut exactly

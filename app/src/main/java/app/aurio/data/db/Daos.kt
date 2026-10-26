@@ -119,6 +119,10 @@ interface ScoreDao {
     @Query("SELECT * FROM score_entry ORDER BY id")
     suspend fun allEntries(): List<ScoreEntryEntity>
 
+    /** One app's settled ledger points for dates in [from, until). */
+    @Query("SELECT points FROM score_entry WHERE packageName = :pkg AND date >= :from AND date < :until")
+    fun observePointsFor(pkg: String, from: String, until: String): Flow<List<Int>>
+
     @Query("SELECT * FROM level_event ORDER BY at DESC")
     fun observeLevelEvents(): Flow<List<LevelEventEntity>>
 }

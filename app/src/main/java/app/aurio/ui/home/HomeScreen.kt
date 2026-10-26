@@ -65,7 +65,7 @@ import app.aurio.ui.theme.AurioType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onStartFocus: () -> Unit, onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit) {
+fun HomeScreen(onStartFocus: () -> Unit, onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit, onOpenApp: (String) -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     var showLevels by rememberSaveable { mutableStateOf(false) }
 
@@ -111,7 +111,10 @@ fun HomeScreen(onStartFocus: () -> Unit, onEditLimits: () -> Unit, onProfile: ()
                 } else {
                     GroupedList {
                         state.limitedApps.forEachIndexed { i, app ->
-                            LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null))
+                            LimitRow(
+                                if (state.usageAccess) app else app.copy(usedMinutes = null),
+                                Modifier.clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) },
+                            )
                             if (i < state.limitedApps.lastIndex) RowDivider()
                         }
                     }

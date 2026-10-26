@@ -278,6 +278,27 @@ class AurioDatabaseTest {
         assertEquals(-60, db.scores().entriesFor("2026-01-01").single().points)
     }
 
+    @Test fun settledDayKeepsTheMinutesItWasScoredOn() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 12)) // partial, mid-day
+        clock.advanceDays(1)
+        repo.settlePastDays { mapOf("ig" to 41) } // Android's full-day record
+        val row = db.usageDays().get("2026-01-01", "ig")!!
+        assertEquals(41, row.minutes)
+        assertEquals(30, row.limitMinutes)
+        assertEquals(-11, db.scores().entriesFor("2026-01-01").single().points)
+    }
+
+    @Test fun unknownSettledDayIsSavedAsUnknown() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 12))
+        clock.advanceDays(1)
+        repo.settlePastDays { null }
+        assertNull(db.usageDays().get("2026-01-01", "ig")!!.minutes)
+    }
+
     @Test fun deleteEverythingEmptiesTables() = runBlocking {
         repo.saveApp("a", "A", AppCategory.LIMITED, 30)
         repo.startFocus(10)

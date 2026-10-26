@@ -35,6 +35,7 @@ import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.data.AurioStore
 import app.aurio.domain.AppCategory
+import app.aurio.ui.apps.AppDetailScreen
 import app.aurio.ui.apps.AppPicker
 import app.aurio.ui.onboarding.OnboardingFlow
 import app.aurio.ui.focus.FocusRunningScreen
@@ -119,10 +120,16 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
                         onEditLimits = { goTab(Tab.LIMITS.route) },
                         onProfile = { goTab(Tab.PROFILE.route) },
                         onTurnOnAccess = onOpenUsageSettings,
+                        onOpenApp = { nav.navigate("app/$it") },
                     )
                 }
                 composable(Tab.FOCUS.route) { FocusSetupScreen(onStarted = { nav.navigate("focus/run") }) }
-                composable(Tab.LIMITS.route) { LimitsScreen(onManageApps = { nav.navigate("apps/edit") }) }
+                composable(Tab.LIMITS.route) {
+                    LimitsScreen(onManageApps = { nav.navigate("apps/edit") }, onOpenApp = { nav.navigate("app/$it") })
+                }
+                composable("app/{pkg}", arguments = listOf(navArgument("pkg") { type = NavType.StringType })) { e ->
+                    AppDetailScreen(e.arguments?.getString("pkg").orEmpty(), onBack = { nav.popBackStack() })
+                }
                 composable("apps/edit") {
                     val st by AurioStore.state.collectAsStateWithLifecycle()
                     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl)) {
