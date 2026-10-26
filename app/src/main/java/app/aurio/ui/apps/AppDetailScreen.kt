@@ -106,8 +106,10 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
             Spacer(Modifier.height(AurioSpacing.md))
             UsageBars(week)
             Spacer(Modifier.height(AurioSpacing.sm))
+            val pastDays = week.dropLast(1).count { it.state != DayBar.State.NO_DATA }
             Text(
-                "The line on each day is the limit that applied then. ? means usage access was off.",
+                if (pastDays == 0) "Bars fill in one day at a time from when you added the app. The line is that day's limit."
+                else "The line on each day is the limit that applied then. ? means usage access was off.",
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
         }

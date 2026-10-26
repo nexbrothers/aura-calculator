@@ -72,8 +72,11 @@ fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Mo
                 shown.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
                 style = AurioType.bodyStrong, modifier = Modifier.weight(1f),
             )
-            MonthButton("‹", "Previous month", enabled = shown > firstMonth) { month = shown.minusMonths(1).toString() }
-            MonthButton("›", "Next month", enabled = shown < thisMonth) { month = shown.plusMonths(1).toString() }
+            // Arrows only once there is more than one month to show.
+            if (firstMonth < thisMonth) {
+                MonthButton("‹", "Previous month", enabled = shown > firstMonth) { month = shown.minusMonths(1).toString() }
+                MonthButton("›", "Next month", enabled = shown < thisMonth) { month = shown.plusMonths(1).toString() }
+            }
         }
         Spacer(Modifier.height(AurioSpacing.sm))
         Row(Modifier.fillMaxWidth().clearAndSetSemantics { }) {
@@ -91,7 +94,7 @@ fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Mo
                 week.forEach { date ->
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(vertical = 2.dp)) {
                         if (date != null) {
-                            DayCell(date, byDate[date], isToday = date == today, isSelected = selected == date.toString()) {
+                            DayCell(date, byDate[date], isToday = date == today, isFuture = date.isAfter(today), isSelected = selected == date.toString()) {
                                 selected = date.toString()
                             }
                         }
@@ -110,8 +113,10 @@ fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Mo
 }
 
 @Composable
-private fun DayCell(date: LocalDate, day: DailyScoreEntity?, isToday: Boolean, isSelected: Boolean, onSelect: () -> Unit) {
-    val fill = day?.let { AuraPalettes.of(AuraLevel.of(it.totalAfter)).c1 } ?: AurioColors.Track.copy(alpha = 0.5f)
+private fun DayCell(date: LocalDate, day: DailyScoreEntity?, isToday: Boolean, isFuture: Boolean, isSelected: Boolean, onSelect: () -> Unit) {
+    // Settled days carry their aura; past days without a score are grey; days to come are blank.
+    val fill = day?.let { AuraPalettes.of(AuraLevel.of(it.totalAfter)).c1 }
+        ?: if (isFuture) AurioColors.Surface else AurioColors.Track.copy(alpha = 0.5f)
     val ring = when {
         isSelected -> Modifier.border(2.dp, AurioColors.Ink, RoundedCornerShape(AurioRadius.tile))
         isToday -> Modifier.border(1.dp, AurioColors.InkSubtle, RoundedCornerShape(AurioRadius.tile))
@@ -130,7 +135,7 @@ private fun DayCell(date: LocalDate, day: DailyScoreEntity?, isToday: Boolean, i
 @Composable
 private fun MonthButton(symbol: String, label: String, enabled: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.semantics { contentDescription = label }) {
-        Text(symbol, style = AurioType.title, color = if (enabled) AurioColors.Ink else AurioColors.Track)
+        Text(symbol, style = AurioType.title, color = if (enabled) AurioColors.Ink else AurioColors.InkSubtle.copy(alpha = 0.4f))
     }
 }
 

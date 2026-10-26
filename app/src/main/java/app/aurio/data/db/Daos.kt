@@ -137,4 +137,7 @@ interface MetaDao {
 
     @Query("SELECT value FROM app_meta WHERE `key` = :key")
     fun observe(key: String): Flow<String?>
+
+    @Query("DELETE FROM app_meta WHERE `key` = :key")
+    suspend fun delete(key: String)
 }

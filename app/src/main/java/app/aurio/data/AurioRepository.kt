@@ -181,15 +181,24 @@ class AurioRepository(
 
     // ---- Midnight settlement ------------------------------------------------------------
 
+    /**
+     * Records the first scored day when onboarding finishes. Access is always off at the start of
+     * onboarding (the user turns it on in step 4), so that is not held against the first day.
+     */
     suspend fun markStartDate() {
-        if (db.meta().get(START_DATE) == null) db.meta().put(AppMetaEntity(START_DATE, clock.today().toString()))
+        if (db.meta().get(START_DATE) == null) {
+            db.meta().put(AppMetaEntity(START_DATE, clock.today().toString()))
+            db.meta().delete(accessOffKey(clock.today()))
+        }
     }
 
     /**
      * Notes that Usage Access was seen off on [date]. That day then settles as Unknown even if
-     * access comes back before midnight, matching what Home showed.
+     * access comes back before midnight, matching what Home showed. Not before onboarding has
+     * finished: nothing is scored yet, and the user has not been asked for access.
      */
     suspend fun markAccessOff(date: LocalDate) {
+        if (db.meta().get(START_DATE) == null) return
         if (db.meta().get(accessOffKey(date)) == null) db.meta().put(AppMetaEntity(accessOffKey(date), "1"))
     }
 

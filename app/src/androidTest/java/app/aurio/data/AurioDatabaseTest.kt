@@ -299,6 +299,24 @@ class AurioDatabaseTest {
         assertNull(db.usageDays().get("2026-01-01", "ig")!!.minutes)
     }
 
+    @Test fun accessOffDuringOnboardingDoesNotMakeTheFirstDayUnknown() = runBlocking {
+        val day1 = java.time.LocalDate.parse("2026-01-01")
+        repo.markAccessOff(day1)           // a sync before the user reached the usage-access step
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.markStartDate()               // onboarding finished with access on
+        assertFalse(repo.accessWasOff(day1).first())
+        repo.recordUsage(day1, mapOf("ig" to 10))
+        clock.advanceDays(1)
+        repo.settlePastDays { mapOf("ig" to 10) }
+        assertEquals(20, db.scores().entriesFor("2026-01-01").single().points)
+    }
+
+    @Test fun accessOffAfterOnboardingStillCounts() = runBlocking {
+        repo.markStartDate()
+        repo.markAccessOff(java.time.LocalDate.parse("2026-01-01"))
+        assertTrue(repo.accessWasOff(java.time.LocalDate.parse("2026-01-01")).first())
+    }
+
     @Test fun deleteEverythingEmptiesTables() = runBlocking {
         repo.saveApp("a", "A", AppCategory.LIMITED, 30)
         repo.startFocus(10)
