@@ -43,12 +43,14 @@ object ShareCard {
         val ink = AurioColors.Ink.toArgb()
         val left = 96f
 
-        text(canvas, "aurio", left, 200f, 64f, bricolage, 800, ink)
-        text(canvas, "I reached", left, 1080f, 56f, onest, 500, ink)
-        text(canvas, level.label, left, 1250f, 190f, bricolage, 800, ink, tracking = -0.04f)
-        text(canvas, "$score", left, 1560f, 300f, bricolage, 800, ink, tracking = -0.06f)
-        text(canvas, "aura", left + 8f, 1650f, 56f, onest, 500, ink)
-        text(canvas, "Scored privately on my phone by Aurio.", left, H - 120f, 40f, onest, 500, ink)
+        // Everything sits inside the area story apps leave clear: roughly the top 250 px and the
+        // bottom 340 px are covered by their progress bar and reply box.
+        text(canvas, "aurio", left, 340f, 64f, bricolage, 800, ink)
+        text(canvas, "I reached", left, 940f, 56f, onest, 500, ink)
+        text(canvas, level.label, left, 1110f, 190f, bricolage, 800, ink, tracking = -0.04f)
+        text(canvas, "$score", left - 6f, 1400f, 300f, bricolage, 800, ink, tracking = -0.02f)
+        text(canvas, "aura", left, 1490f, 56f, onest, 500, ink)
+        text(canvas, "Scored privately on my phone by Aurio.", left, 1560f, 40f, onest, 500, ink)
         return bitmap
     }
 

@@ -1,6 +1,17 @@
 package app.aurio.ui.levelup
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import app.aurio.ui.theme.AurioRadius
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -91,6 +102,37 @@ fun LevelUpScreen(level: AuraLevel, score: Int, reduceMotion: Boolean, onDone: (
             SecondaryButton("Continue", onDone, container = AurioColors.Surface.copy(alpha = 0.85f))
             Spacer(Modifier.height(4.dp))
         }
+    }
+}
+
+/**
+ * Developer tools only: draws the share card with sample values, exactly as Share would, and shows
+ * it on screen. Nothing is saved or shared.
+ */
+@Composable
+fun ShareCardPreview(onBack: () -> Unit) {
+    val context = LocalContext.current
+    var card by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(Unit) {
+        card = withContext(Dispatchers.Default) { ShareCard.render(context, AuraLevel.GLOW, 412).asImageBitmap() }
+    }
+    Column(
+        Modifier.fillMaxSize().background(AurioColors.Paper).statusBarsPadding().navigationBarsPadding()
+            .padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.lg),
+    ) {
+        Text("Share card (sample)", style = AurioType.title)
+        Spacer(Modifier.height(AurioSpacing.md))
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            card?.let {
+                Image(
+                    it, contentDescription = "Share card: Glow, aura 412",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.aspectRatio(1080f / 1920f).clip(RoundedCornerShape(AurioRadius.card)),
+                )
+            } ?: Text("Drawing the card", style = AurioType.body, color = AurioColors.InkMuted)
+        }
+        Spacer(Modifier.height(AurioSpacing.md))
+        SecondaryButton("Back", onBack)
     }
 }
 

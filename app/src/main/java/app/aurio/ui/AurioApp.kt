@@ -158,8 +158,9 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
                 composable(Tab.INSIGHTS.route) { InsightsScreen() }
                 composable(Tab.PROFILE.route) { ProfileScreen(onOpenUsageSettings, onDeveloperTools = { nav.navigate("debug") }) }
                 composable("debug") {
-                    app.aurio.ui.debug.DebugScreen(onBack = { nav.popBackStack() }, onPreviewLevelUp = { nav.navigate("levelup/preview") })
+                    app.aurio.ui.debug.DebugScreen(onBack = { nav.popBackStack() }, onPreviewLevelUp = { nav.navigate("levelup/preview") }, onPreviewShareCard = { nav.navigate("sharecard/preview") })
                 }
+                composable("sharecard/preview") { app.aurio.ui.levelup.ShareCardPreview(onBack = { nav.popBackStack() }) }
                 composable("levelup/preview") {
                     LevelUpScreen(app.aurio.domain.AuraLevel.GLOW, 412, reduceMotion = false, onDone = { nav.popBackStack() }, canShare = false)
                 }
