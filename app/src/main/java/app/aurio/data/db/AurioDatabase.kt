@@ -1,6 +1,7 @@
 package app.aurio.data.db
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -11,8 +12,12 @@ import androidx.room.withTransaction
         TrackedAppEntity::class, UsageDayEntity::class, FocusSessionEntity::class,
         ScoreEntryEntity::class, DailyScoreEntity::class, LevelEventEntity::class, AppMetaEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [
+        // 2: usage_day records the label, category and limit that applied that day.
+        AutoMigration(from = 1, to = 2),
+    ],
 )
 abstract class AurioDatabase : RoomDatabase() {
     abstract fun trackedApps(): TrackedAppDao
@@ -25,7 +30,7 @@ abstract class AurioDatabase : RoomDatabase() {
     suspend fun wipe() = withTransaction { clearAllTables() }
 
     companion object {
-        private const val NAME = "aurio.db"
+        const val NAME = "aurio.db"
 
         fun build(context: Context): AurioDatabase =
             Room.databaseBuilder(context.applicationContext, AurioDatabase::class.java, NAME)

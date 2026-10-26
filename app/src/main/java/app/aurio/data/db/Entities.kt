@@ -3,6 +3,8 @@ package app.aurio.data.db
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import app.aurio.domain.AppCategory
+import app.aurio.domain.AppTerms
 
 /** Dates are ISO yyyy-MM-dd strings in the user's local zone. */
 
@@ -24,7 +26,19 @@ data class UsageDayEntity(
     /** Null means Usage Access was off: Unknown, never a bonus or penalty. */
     val minutes: Int?,
     val updatedAt: Long,
+    /**
+     * The terms this app is scored by on [date], recorded the first time it is seen that day
+     * (see DayRules). Null on rows written before schema 2 and for untracked packages.
+     */
+    val label: String? = null,
+    val category: String? = null,
+    val limitMinutes: Int? = null,
 )
+
+fun TrackedAppEntity.terms() = AppTerms(label, AppCategory.valueOf(category), limitMinutes)
+
+fun UsageDayEntity.terms(): AppTerms? =
+    if (label == null || category == null) null else AppTerms(label, AppCategory.valueOf(category), limitMinutes)
 
 @Entity(tableName = "focus_session", indices = [Index("date")])
 data class FocusSessionEntity(

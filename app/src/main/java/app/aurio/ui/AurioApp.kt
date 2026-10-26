@@ -131,7 +131,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit) {
                         Text("Limited apps are scored against a daily limit. Tap a chosen option again to stop tracking an app.", style = AurioType.body, color = AurioColors.InkMuted)
                         Spacer(Modifier.height(AurioSpacing.lg))
                         AppPicker(
-                            initial = st.apps.associate { it.packageName to (it.label to it.category) },
+                            initial = st.tracked.mapValues { (_, t) -> t.label to t.category },
                             confirmText = "Save",
                             onConfirm = { chosen -> AurioStore.saveApps(chosen); nav.popBackStack() },
                             modifier = Modifier.weight(1f),

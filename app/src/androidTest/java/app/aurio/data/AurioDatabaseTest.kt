@@ -60,6 +60,93 @@ class AurioDatabaseTest {
         assertEquals(0, db.focusSessions().forDate("2026-01-01").single().creditedMinutes)
     }
 
+    // ---- Terms that applied each day (DayRules) ------------------------------------------
+
+    private suspend fun todayRow(pkg: String) = db.usageDays().get("2026-01-01", pkg)!!
+
+    @Test fun loweringALimitAppliesToday() = runBlocking {
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.setLimit("ig", 20)
+        assertEquals(20, todayRow("ig").limitMinutes)
+        assertEquals(20, db.trackedApps().get("ig")!!.limitMinutes)
+    }
+
+    @Test fun raisingALimitAppliesTomorrow() = runBlocking {
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.setLimit("ig", 45)
+        assertEquals(30, todayRow("ig").limitMinutes)
+        assertEquals(45, db.trackedApps().get("ig")!!.limitMinutes)
+    }
+
+    @Test fun recordingUsageKeepsTheDaysTerms() = runBlocking {
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 12))
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 14))
+        val row = todayRow("ig")
+        assertEquals(14, row.minutes)
+        assertEquals(30, row.limitMinutes)
+        assertEquals("LIMITED", row.category)
+    }
+
+    @Test fun settlementUsesTheLimitThatAppliedThatDay() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 45))
+        repo.setLimit("ig", 60) // raised mid-day: must not erase today's 15 minutes over
+        clock.advanceDays(1)
+        repo.settlePastDays { null }
+        val entry = db.scores().entriesFor("2026-01-01").single()
+        assertEquals(-15, entry.points)
+    }
+
+    @Test fun removedAppIsStillSettledForThatDay() = runBlocking {
+        repo.markStartDate()
+        repo.replaceApps(mapOf("yt" to ("YouTube" to AppCategory.LIMITED)))
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("yt" to 50))
+        repo.replaceApps(emptyMap())
+        clock.advanceDays(1)
+        repo.settlePastDays { null }
+        assertEquals(-20, db.scores().entriesFor("2026-01-01").single().points)
+    }
+
+    @Test fun removedAppKeepsGettingMinutesToday() = runBlocking {
+        repo.replaceApps(mapOf("ig" to ("Instagram" to AppCategory.LIMITED)))
+        repo.replaceApps(emptyMap())
+        assertEquals(setOf("ig"), repo.scoredPackages(java.time.LocalDate.parse("2026-01-01")))
+        clock.advanceDays(1)
+        assertTrue(repo.scoredPackages(java.time.LocalDate.parse("2026-01-02")).isEmpty())
+    }
+
+    @Test fun saveAppLoweringALimitAppliesToday() = runBlocking {
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 20)
+        assertEquals(20, todayRow("ig").limitMinutes)
+    }
+
+    @Test fun movingToLimitedTodayEarnsNothingToday() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.NEUTRAL, null)
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 0))
+        clock.advanceDays(1)
+        repo.settlePastDays { null }
+        assertTrue(db.scores().entriesFor("2026-01-01").isEmpty())
+    }
+
+    @Test fun accessOffAllDaySettlesAsUnknown() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        clock.advanceDays(1)
+        repo.recordTerms(java.time.LocalDate.parse("2026-01-02"))
+        repo.settlePastDays { null }
+        clock.advanceDays(1)
+        repo.settlePastDays { null }
+        val day2 = db.scores().allDaily().single { it.date == "2026-01-02" }
+        assertTrue(day2.partial)
+        assertEquals(0, day2.delta)
+        assertTrue(db.scores().entriesFor("2026-01-02").isEmpty())
+    }
+
     @Test fun deleteEverythingEmptiesTables() = runBlocking {
         repo.saveApp("a", "A", AppCategory.LIMITED, 30)
         repo.startFocus(10)

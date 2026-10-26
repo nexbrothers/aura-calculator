@@ -2,8 +2,8 @@ package app.aurio.data
 
 import app.aurio.data.db.*
 import app.aurio.domain.AppCategory
-import app.aurio.domain.AppUsage
 import app.aurio.domain.AurioClock
+import app.aurio.domain.DayRules
 import app.aurio.domain.FocusSession
 import app.aurio.domain.LineKind
 import app.aurio.domain.Settlement
@@ -30,7 +30,10 @@ class AurioRepository(
     val lastSettled: Flow<DailyScoreEntity?> = db.scores().observeLastDaily()
     val running: Flow<FocusSessionEntity?> = db.focusSessions().observeRunning()
 
-    suspend fun trackedAppsNow() = db.trackedApps().getAll()
+    /** Packages scored on [date]: tracked now, plus any recorded that day (an app removed today still counts today). */
+    suspend fun scoredPackages(date: LocalDate): Set<String> =
+        db.trackedApps().getAll().map { it.packageName }.toSet() +
+            db.usageDays().forDate(date.toString()).filter { it.category != null }.map { it.packageName }
 
     fun history(): Flow<List<DailyScoreEntity>> = db.scores().observeSince(clock.today().minusDays(365).toString())
     fun usageFor(date: LocalDate): Flow<List<UsageDayEntity>> = db.usageDays().observeDate(date.toString())
@@ -38,13 +41,21 @@ class AurioRepository(
 
     // ---- Tracked apps -------------------------------------------------------------------
 
-    suspend fun saveApp(pkg: String, label: String, category: AppCategory, limitMinutes: Int?) {
+    // Edits change tracked_app, which is what tomorrow uses. Today keeps the terms recorded
+    // before the edit, except where DayRules lets a stricter change apply at once.
+
+    suspend fun saveApp(pkg: String, label: String, category: AppCategory, limitMinutes: Int?) = db.withTransaction {
+        recordTerms(clock.today())
         val limit = if (category == AppCategory.LIMITED) (limitMinutes ?: DEFAULT_LIMIT).coerceIn(5, 240) else null
-        db.trackedApps().upsert(TrackedAppEntity(pkg, label, category.name, limit, clock.nowMillis()))
+        val addedAt = db.trackedApps().get(pkg)?.addedAt ?: clock.nowMillis()
+        db.trackedApps().upsert(TrackedAppEntity(pkg, label, category.name, limit, addedAt))
+        applyEditToToday(pkg)
+        recordTerms(clock.today())
     }
 
     /** Makes the tracked set equal [chosen]; keeps existing limits and add-dates for apps that stay. */
     suspend fun replaceApps(chosen: Map<String, Pair<String, AppCategory>>) = db.withTransaction {
+        recordTerms(clock.today())
         val existing = db.trackedApps().getAll().associateBy { it.packageName }
         existing.keys.filter { it !in chosen }.forEach { db.trackedApps().delete(it) }
         chosen.forEach { (pkg, pair) ->
@@ -53,15 +64,44 @@ class AurioRepository(
             val limit = if (category == AppCategory.LIMITED) (old?.limitMinutes ?: DEFAULT_LIMIT) else null
             db.trackedApps().upsert(TrackedAppEntity(pkg, label, category.name, limit, old?.addedAt ?: clock.nowMillis()))
         }
+        // Apps added just now are scored from today.
+        recordTerms(clock.today())
     }
 
-    suspend fun setLimit(pkg: String, minutes: Int) = db.trackedApps().setLimit(pkg, minutes.coerceIn(5, 240))
+    suspend fun setLimit(pkg: String, minutes: Int) = db.withTransaction {
+        recordTerms(clock.today())
+        db.trackedApps().setLimit(pkg, minutes.coerceIn(5, 240))
+        applyEditToToday(pkg)
+    }
+
+    /** Lets a stricter edit reach today's recorded terms (DayRules); looser edits wait for tomorrow. */
+    private suspend fun applyEditToToday(pkg: String) {
+        val today = clock.today().toString()
+        val todayTerms = db.usageDays().get(today, pkg)?.terms() ?: return
+        val next = DayRules.termsAfterEdit(todayTerms, db.trackedApps().get(pkg)?.terms())
+        if (next != todayTerms) db.usageDays().setLimit(today, pkg, next.limitMinutes)
+    }
 
     // ---- Usage --------------------------------------------------------------------------
 
-    suspend fun recordUsage(date: LocalDate, minutesByPackage: Map<String, Int?>) {
+    /**
+     * Records, once per day, the terms each tracked app is scored by on [date]. Later calls the
+     * same day change nothing, so editing an app cannot rewrite today's terms behind DayRules.
+     */
+    suspend fun recordTerms(date: LocalDate) = db.withTransaction {
         val now = clock.nowMillis()
-        db.usageDays().upsertAll(minutesByPackage.map { (p, m) -> UsageDayEntity(date.toString(), p, m, now) })
+        db.trackedApps().getAll().forEach { a ->
+            db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), a.packageName, null, now, a.label, a.category, a.limitMinutes))
+            db.usageDays().fillTerms(date.toString(), a.packageName, a.label, a.category, a.limitMinutes)
+        }
+    }
+
+    suspend fun recordUsage(date: LocalDate, minutesByPackage: Map<String, Int?>) = db.withTransaction {
+        val now = clock.nowMillis()
+        minutesByPackage.forEach { (p, m) ->
+            db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), p, m, now))
+            db.usageDays().setMinutes(date.toString(), p, m, now)
+        }
     }
 
     // ---- Focus --------------------------------------------------------------------------
@@ -119,10 +159,12 @@ class AurioRepository(
         while (date.isBefore(today)) {
             val endOfDay = date.plusDays(1).atStartOfDay(clock.zone()).toInstant().toEpochMilli()
             val provided = usageProvider(date)
-            val stored = db.usageDays().forDate(date.toString()).associate { it.packageName to it.minutes }
-            val usages = apps.filter { it.addedAt < endOfDay }.map { a ->
-                val used: Int? = if (provided != null) (provided[a.packageName] ?: 0) else stored[a.packageName]
-                AppUsage(a.packageName, a.label, AppCategory.valueOf(a.category), used, a.limitMinutes ?: 0)
+            val rows = db.usageDays().forDate(date.toString())
+            val stored = rows.associate { it.packageName to it.minutes }
+            val recorded = rows.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
+            val current = apps.filter { it.addedAt < endOfDay }.associate { it.packageName to it.terms() }
+            val usages = DayRules.appsForDay(recorded, current) { pkg ->
+                if (provided != null) (provided[pkg] ?: 0) else stored[pkg]
             }
             val sessions = db.focusSessions().forDate(date.toString()).filter { it.status == "COMPLETED" }
             val day = Settlement.settle(usages, sessions.map { it.creditedMinutes }, total, streak, isFirstDay = date == start)

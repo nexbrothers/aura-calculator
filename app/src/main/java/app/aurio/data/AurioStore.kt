@@ -4,6 +4,10 @@ import android.content.Context
 import app.aurio.AurioApplication
 import app.aurio.data.db.DailyScoreEntity
 import app.aurio.data.db.FocusSessionEntity
+import app.aurio.data.db.UsageDayEntity
+import app.aurio.data.db.terms
+import app.aurio.domain.AppTerms
+import app.aurio.domain.DayRules
 import app.aurio.data.settings.Settings
 import app.aurio.domain.AppCategory
 import app.aurio.domain.AppUsage
@@ -34,7 +38,10 @@ data class AurioState(
     /** Aura banked by settled days. Today's lines are added on top. */
     val bankedScore: Int = 0,
     val sessions: List<FocusSession> = emptyList(),
+    /** Today's apps, scored by the terms recorded for today (see DayRules). */
     val apps: List<AppUsage> = emptyList(),
+    /** Current settings per package; they apply from tomorrow where they differ from [apps]. */
+    val tracked: Map<String, AppTerms> = emptyMap(),
     val usageAccess: Boolean = false,
     val streakDays: Int = 0,
     val bestStreak: Int = 0,
@@ -75,24 +82,22 @@ object AurioStore {
         app = application
         val dayData = today.flatMapLatest { d ->
             combine(repo.usageFor(d), repo.focusFor(d), usageAccess, repo.running) { usage, focus, access, running ->
-                DayData(usage.associate { it.packageName to it.minutes }, focus, access, running)
+                DayData(usage, focus, access, running)
             }
         }
         scope.launch {
             combine(repo.trackedApps, dayData, repo.lastSettled, repo.history(), settingsStore.settings) { tracked, day, last, history, settings ->
-                val apps = tracked.map { a ->
-                    AppUsage(
-                        a.packageName, a.label, AppCategory.valueOf(a.category),
-                        if (day.access) (day.usage[a.packageName] ?: 0) else null,
-                        a.limitMinutes ?: 0,
-                    )
-                }
+                val current = tracked.associate { it.packageName to it.terms() }
+                val recorded = day.usage.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
+                val minutes = day.usage.associate { it.packageName to it.minutes }
+                val apps = DayRules.appsForDay(recorded, current) { pkg -> if (day.access) (minutes[pkg] ?: 0) else null }
                 AurioState(
                     loaded = true,
                     settings = settings,
                     bankedScore = last?.totalAfter ?: 0,
                     sessions = repo.toFocusSessions(day.focus),
                     apps = apps,
+                    tracked = current,
                     usageAccess = day.access,
                     streakDays = last?.streakAfter ?: 0,
                     bestStreak = history.maxOfOrNull { it.streakAfter } ?: 0,
@@ -104,7 +109,7 @@ object AurioStore {
     }
 
     private class DayData(
-        val usage: Map<String, Int?>,
+        val usage: List<UsageDayEntity>,
         val focus: List<FocusSessionEntity>,
         val access: Boolean,
         val running: FocusSessionEntity?,
@@ -130,12 +135,12 @@ object AurioStore {
                 }
             }
             val day = SystemAurioClock.today()
+            r.recordTerms(day)
             today.value = day
             usageAccess.value = granted
             if (granted) {
                 val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.todayMinutes(context)
-                val tracked = r.trackedAppsNow()
-                r.recordUsage(day, tracked.associate { it.packageName to (minutes[it.packageName] ?: 0) })
+                r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
             }
         }
     }

@@ -57,6 +57,10 @@ import kotlinx.coroutines.launch
 import app.aurio.ui.components.SecondaryButton
 import app.aurio.data.AurioStore
 import app.aurio.domain.AppCategory
+import app.aurio.domain.AppTerms
+import app.aurio.ui.theme.AurioTheme
+import androidx.compose.ui.tooling.preview.Preview
+import app.aurio.domain.AppUsage
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.LimitStatus
 import app.aurio.ui.components.AuraField
@@ -120,6 +124,7 @@ fun LimitsScreen(onManageApps: () -> Unit) {
                 apps.forEach { app ->
                     val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(horizontal = AurioSpacing.lg)) {
+                        val saved = state.tracked[app.packageName]
                         LimitRow(usage)
                         Row(Modifier.fillMaxWidth().padding(bottom = AurioSpacing.md), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             when (val s = AuraScoring.limitStatus(usage)) {
@@ -127,10 +132,14 @@ fun LimitsScreen(onManageApps: () -> Unit) {
                                 is LimitStatus.Over -> Pill("${signed(-s.penalty)} today", PillTone.LOSS)
                                 else -> Pill("Unknown", PillTone.UNKNOWN)
                             }
-                            Stepper(app.limitMinutes, app.label,
-                                onDec = { AurioStore.setLimit(app.packageName, app.limitMinutes - 5) },
-                                onInc = { AurioStore.setLimit(app.packageName, app.limitMinutes + 5) })
+                            val savedLimit = saved?.limitMinutes
+                            if (saved?.category == AppCategory.LIMITED && savedLimit != null) {
+                                Stepper(savedLimit, app.label,
+                                    onDec = { AurioStore.setLimit(app.packageName, savedLimit - 5) },
+                                    onInc = { AurioStore.setLimit(app.packageName, savedLimit + 5) })
+                            }
                         }
+                        tomorrowNote(app, saved)?.let { PendingNote(it) }
                     }
                 }
             }
@@ -138,6 +147,7 @@ fun LimitsScreen(onManageApps: () -> Unit) {
             GroupedList {
                 apps.forEachIndexed { i, app ->
                     LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null))
+                    tomorrowNote(app, state.tracked[app.packageName])?.let { PendingNote(it) }
                     if (i < apps.lastIndex) RowDivider()
                 }
             }
@@ -151,6 +161,29 @@ fun LimitsScreen(onManageApps: () -> Unit) {
             RuleRow("?", PillTone.UNKNOWN, "Unknown when usage access is off")
         }
     }
+}
+
+/**
+ * What changes tomorrow when the saved settings differ from the terms scoring today:
+ * a raised limit, a new category or a removed app only apply from the next day.
+ */
+internal fun tomorrowNote(today: AppUsage, saved: AppTerms?): String? = when {
+    saved == null -> "Stops being tracked tomorrow"
+    saved.category != today.category -> "Moves to ${saved.category.name.lowercase()} tomorrow"
+    saved.category == AppCategory.LIMITED && saved.limitMinutes != today.limitMinutes ->
+        "Limit is ${today.limitMinutes} min today, ${saved.limitMinutes} min from tomorrow"
+    else -> null
+}
+
+@Composable
+private fun PendingNote(text: String) {
+    Text(text, style = AurioType.caption, color = AurioColors.InkSubtle, modifier = Modifier.padding(bottom = AurioSpacing.md))
+}
+
+@Preview
+@Composable
+private fun PendingNotePreview() {
+    AurioTheme { PendingNote("Limit is 30 min today, 45 min from tomorrow") }
 }
 
 @Composable

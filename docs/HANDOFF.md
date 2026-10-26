@@ -26,9 +26,18 @@ Plans (Claude Docs, read-only context):
 
 ## Known gaps / next
 1. Notification when a focus session ends (alarm + channel; ask POST_NOTIFICATIONS after first completed session).
-2. Raising a limit should apply tomorrow (lowering applies now); currently applies immediately.
+2. Settlement can score a stale partial day: if Usage Access was on earlier and is off at settlement, stored
+   minutes are treated as final (can pay +20). Should become Unknown unless the day was fully recorded.
 3. Level-up screen / share card, heatmap, 7-day bars per app detail.
 4. Widgets (2x2, 4x1, 4x2) read from the store and refresh on session and midnight; currently 2x2 shows score only.
 5. Room migration tests; usage accuracy check against Android's own screen time for 3 days.
 6. Open rule decisions (recommendations in use): streak = focus session OR all limits kept; usage-off day = Unknown;
    phone-free = timer completion; session crossing midnight credits the end day.
+7. Product question: a Limited app is scored from the day it is added, and removal applies tomorrow, so adding
+   an unused app late and removing it after midnight earns two days of +20. Consider a per-day bonus cap or
+   scoring new apps from tomorrow.
+
+## Day terms (schema 2)
+- usage_day records label, category and limit per app per day the first time the app is seen that day.
+- DayRules: lowering a limit applies today; raising, category changes and removal apply tomorrow.
+- Settlement and Home both score from recorded terms; days with no record fall back to current settings.

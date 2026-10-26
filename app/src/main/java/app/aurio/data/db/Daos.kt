@@ -20,6 +20,9 @@ interface TrackedAppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(apps: List<TrackedAppEntity>)
 
+    @Query("SELECT * FROM tracked_app WHERE packageName = :pkg")
+    suspend fun get(pkg: String): TrackedAppEntity?
+
     @Query("UPDATE tracked_app SET limitMinutes = :minutes WHERE packageName = :pkg AND category = 'LIMITED'")
     suspend fun setLimit(pkg: String, minutes: Int)
 
@@ -29,8 +32,22 @@ interface TrackedAppDao {
 
 @Dao
 interface UsageDayDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(rows: List<UsageDayEntity>)
+    /** Never REPLACE: that would erase the terms recorded for the day. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(row: UsageDayEntity)
+
+    @Query("UPDATE usage_day SET minutes = :minutes, updatedAt = :at WHERE date = :date AND packageName = :pkg")
+    suspend fun setMinutes(date: String, pkg: String, minutes: Int?, at: Long)
+
+    /** Fills terms only on rows that have none yet (rows from schema 1, or written before tracking). */
+    @Query("UPDATE usage_day SET label = :label, category = :category, limitMinutes = :limit WHERE date = :date AND packageName = :pkg AND category IS NULL")
+    suspend fun fillTerms(date: String, pkg: String, label: String, category: String, limit: Int?)
+
+    @Query("UPDATE usage_day SET limitMinutes = :limit WHERE date = :date AND packageName = :pkg")
+    suspend fun setLimit(date: String, pkg: String, limit: Int?)
+
+    @Query("SELECT * FROM usage_day WHERE date = :date AND packageName = :pkg")
+    suspend fun get(date: String, pkg: String): UsageDayEntity?
 
     @Query("SELECT * FROM usage_day WHERE date = :date")
     suspend fun forDate(date: String): List<UsageDayEntity>
