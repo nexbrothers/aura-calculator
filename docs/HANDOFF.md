@@ -32,7 +32,8 @@ Plans (Claude Docs, read-only context):
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
 3. Level-up: celebrated only for levels reached at midnight (not right after a focus session). The share card was
    checked with the debug preview. App detail and the heatmap still need a look with real history.
-4. Widgets are built but not yet looked at on a home screen.
+4. Widgets checked on a realme 9 home screen (render, Start focus opens Focus, tap opens the app). Their text uses
+   the system font (Glance cannot load Bricolage); render the score into the aura bitmap if that matters.
 5. Run device tests (connectedDebugAndroidTest). Compare Aurio's minutes with the phone's own screen-time page
    for 3 days now that usage is read from events. Known small gaps: picture-in-picture is not counted, and a
    screen woken without a new resume (call proximity blanking) loses the time after wake.
