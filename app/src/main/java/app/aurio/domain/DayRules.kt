@@ -1,10 +1,27 @@
 package app.aurio.domain
 
+import java.time.LocalDate
+
 /** The rules one app is scored by on one day. [limitMinutes] is null unless LIMITED. */
 data class AppTerms(val label: String, val category: AppCategory, val limitMinutes: Int?)
 
 /** Which terms apply to which day. Pure: no Android, no clock, no database. */
 object DayRules {
+
+    /**
+     * Where measuring a day starts: local midnight, or on the install day the moment Aurio was
+     * set up, so time spent before Aurio existed never counts for or against the user.
+     */
+    fun measureFrom(dayStartMillis: Long, installedAtMillis: Long?): Long =
+        maxOf(dayStartMillis, installedAtMillis ?: dayStartMillis)
+
+    /**
+     * Whether Usage Access being off on [date] makes that day uncounted. Never on the install day
+     * ([startDate]): turning access on during setup is not withholding anything, and once it is
+     * on, Android's record of the day since install can be read in full.
+     */
+    fun accessOffCounts(date: LocalDate, startDate: LocalDate?): Boolean =
+        startDate != null && date.isAfter(startDate)
 
     /** Android keeps about 10 days of usage events (less on some phones); a day also needs 6 hours before it. */
     const val MAX_READABLE_AGE_DAYS = 6L

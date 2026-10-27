@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Process
 import android.provider.Settings
+import app.aurio.domain.DayRules
 import app.aurio.domain.ForegroundEvent
 import app.aurio.domain.ForegroundTime
 
@@ -30,19 +31,23 @@ object UsageAccess {
     /**
      * Foreground minutes per package on [date] so far. The window is taken from [date], not from
      * the clock, so a read that straddles midnight cannot file tomorrow's minutes under today.
+     * [notBefore] (the install moment, on the install day) moves the start later.
      */
-    fun minutesSoFar(context: Context, date: java.time.LocalDate): Map<String, Int> {
+    fun minutesSoFar(context: Context, date: java.time.LocalDate, notBefore: Long? = null): Map<String, Int> {
         val zone = java.time.ZoneId.systemDefault()
-        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val start = DayRules.measureFrom(date.atStartOfDay(zone).toInstant().toEpochMilli(), notBefore)
         val end = minOf(System.currentTimeMillis(), date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())
         return foregroundMinutes(context, start, end)
     }
 
-    /** Foreground minutes per package for a finished local date, or null when access is off. */
-    fun minutesForDate(context: Context, date: java.time.LocalDate): Map<String, Int>? {
+    /**
+     * Foreground minutes per package for a finished local date, or null when access is off.
+     * [notBefore] (the install moment, on the install day) moves the start later.
+     */
+    fun minutesForDate(context: Context, date: java.time.LocalDate, notBefore: Long? = null): Map<String, Int>? {
         if (!isGranted(context)) return null
         val zone = java.time.ZoneId.systemDefault()
-        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val start = DayRules.measureFrom(date.atStartOfDay(zone).toInstant().toEpochMilli(), notBefore)
         val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         return foregroundMinutes(context, start, end)
     }
@@ -57,6 +62,7 @@ object UsageAccess {
      * name is reduced to a hash at once, so which part of an app was used is never held.
      */
     private fun foregroundMinutes(context: Context, start: Long, end: Long): Map<String, Int> {
+        if (start >= end) return emptyMap()
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val readFrom = start - LOOKBACK_MILLIS
         val events = usm.queryEvents(readFrom, end)

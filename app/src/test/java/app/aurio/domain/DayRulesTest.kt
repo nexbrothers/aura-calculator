@@ -68,6 +68,27 @@ class DayRulesTest {
         assertEquals(true, day.partial)
     }
 
+    // ---- Counting starts at install ----------------------------------------------------
+
+    @Test fun installDayIsMeasuredFromInstallTime() {
+        val midnight = 1_000_000L
+        val installedAt = midnight + 9 * 3_600_000L // set up at 9:00
+        assertEquals(installedAt, DayRules.measureFrom(midnight, installedAt))
+    }
+
+    @Test fun laterDaysAreMeasuredFromMidnight() {
+        val midnight = 1_000_000L
+        assertEquals(midnight, DayRules.measureFrom(midnight, midnight - 86_400_000L))
+        assertEquals(midnight, DayRules.measureFrom(midnight, null))
+    }
+
+    @Test fun accessOffNeverCountsAgainstTheInstallDay() {
+        val install = java.time.LocalDate.parse("2026-10-28")
+        assertEquals(false, DayRules.accessOffCounts(install, install))
+        assertEquals(true, DayRules.accessOffCounts(install.plusDays(1), install))
+        assertEquals(false, DayRules.accessOffCounts(install, null)) // not set up yet
+    }
+
     @Test fun sameLimitChangesNothing() {
         assertEquals(limited(30), DayRules.termsAfterEdit(limited(30), limited(30)))
     }

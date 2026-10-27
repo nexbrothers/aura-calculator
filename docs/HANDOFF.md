@@ -48,6 +48,13 @@ Plans (Claude Docs, read-only context):
 - DayRules: lowering a limit applies today; raising, category changes and removal apply tomorrow.
 - Settlement and Home both score from recorded terms; days with no record fall back to current settings.
 
+## Counting starts at install
+- markStartDate records start_date and start_at (the set-up moment). The install day is measured from start_at,
+  not midnight (DayRules.measureFrom; UsageAccess notBefore), so time before Aurio existed never counts.
+- The access-off mark never applies to the install day (DayRules.accessOffCounts): access is turned on during
+  set-up, and once on, Android's record since install is read in full. Installs from before start_at existed fall
+  back to when their first apps were chosen.
+
 ## Unknown days
 - If Usage Access is seen off at any point on a day (app_meta key access_off:<date>, set by sync and SettleWorker),
   that day is Unknown: Home shows Unknown and settlement never reads Android for it.

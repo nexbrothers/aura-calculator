@@ -25,7 +25,11 @@ class SettleWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val app = applicationContext as AurioApplication
         return try {
             if (!UsageAccess.isGranted(applicationContext)) app.repository.markAccessOff(SystemAurioClock.today())
-            app.repository.settlePastDays { date -> UsageAccess.minutesForDate(applicationContext, date) }
+            val startDay = app.repository.startDate()
+            val installedAt = app.repository.installedAt()
+            app.repository.settlePastDays { date ->
+                UsageAccess.minutesForDate(applicationContext, date, notBefore = if (date == startDay) installedAt else null)
+            }
             Result.success()
         } catch (e: Exception) {
             // Settlement is idempotent: a later run (or the next app open) picks up where this stopped.

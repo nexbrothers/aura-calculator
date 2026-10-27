@@ -11,6 +11,7 @@ import app.aurio.domain.LineKind
 import app.aurio.domain.Settlement
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -182,27 +183,49 @@ class AurioRepository(
     // ---- Midnight settlement ------------------------------------------------------------
 
     /**
-     * Records the first scored day when onboarding finishes. Access is always off at the start of
-     * onboarding (the user turns it on in step 4), so that is not held against the first day.
+     * Records when counting starts, once, as onboarding finishes: the install day and the moment
+     * of set-up. Everything is measured from then (DayRules.measureFrom).
      */
     suspend fun markStartDate() {
         if (db.meta().get(START_DATE) == null) {
             db.meta().put(AppMetaEntity(START_DATE, clock.today().toString()))
-            db.meta().delete(accessOffKey(clock.today()))
+            db.meta().put(AppMetaEntity(START_AT, clock.nowMillis().toString()))
         }
     }
 
+    suspend fun startDate(): LocalDate? = db.meta().get(START_DATE)?.let(LocalDate::parse)
+
     /**
-     * Notes that Usage Access was seen off on [date]. That day then settles as Unknown even if
-     * access comes back before midnight, matching what Home showed. Not before onboarding has
-     * finished: nothing is scored yet, and the user has not been asked for access.
+     * The moment counting started. Installs from before this was recorded fall back to when their
+     * first apps were chosen (in onboarding, just before it finished), else to the install day's
+     * midnight (null).
+     */
+    suspend fun installedAt(): Long? {
+        db.meta().get(START_AT)?.toLongOrNull()?.let { return it }
+        val start = startDate() ?: return null
+        val dayStart = start.atStartOfDay(clock.zone()).toInstant().toEpochMilli()
+        val dayEnd = start.plusDays(1).atStartOfDay(clock.zone()).toInstant().toEpochMilli()
+        return db.trackedApps().getAll().map { it.addedAt }.filter { it in dayStart until dayEnd }.minOrNull()
+    }
+
+    /** Where to start measuring [date]: the install moment on the install day, else midnight (null). */
+    suspend fun measureFrom(date: LocalDate): Long? = if (date == startDate()) installedAt() else null
+
+    /**
+     * Notes that Usage Access was seen off on [date]. A day after the install day then settles as
+     * not counted even if access comes back before midnight, matching what Home showed. On the
+     * install day it is never noted (DayRules.accessOffCounts).
      */
     suspend fun markAccessOff(date: LocalDate) {
-        if (db.meta().get(START_DATE) == null) return
+        if (!DayRules.accessOffCounts(date, startDate())) return
         if (db.meta().get(accessOffKey(date)) == null) db.meta().put(AppMetaEntity(accessOffKey(date), "1"))
     }
 
-    fun accessWasOff(date: LocalDate): Flow<Boolean> = db.meta().observe(accessOffKey(date)).map { it != null }
+    /** Whether [date] is not counted because access was off; never true for the install day. */
+    fun accessWasOff(date: LocalDate): Flow<Boolean> =
+        combine(db.meta().observe(accessOffKey(date)), db.meta().observe(START_DATE)) { flag, start ->
+            flag != null && DayRules.accessOffCounts(date, start?.let(LocalDate::parse))
+        }
 
     private fun accessOffKey(date: LocalDate) = "access_off:$date"
 
@@ -233,7 +256,7 @@ class AurioRepository(
 
         while (date.isBefore(today)) {
             val endOfDay = date.plusDays(1).atStartOfDay(clock.zone()).toInstant().toEpochMilli()
-            val accessWasOff = db.meta().get(accessOffKey(date)) != null
+            val accessWasOff = db.meta().get(accessOffKey(date)) != null && DayRules.accessOffCounts(date, start)
             val ageDays = java.time.temporal.ChronoUnit.DAYS.between(date, today)
             val provided = if (DayRules.canReadFullDay(ageDays, accessWasOff)) usageProvider(date) else null
             val rows = db.usageDays().forDate(date.toString())
@@ -304,6 +327,7 @@ class AurioRepository(
     companion object {
         const val DEFAULT_LIMIT = 30
         private const val START_DATE = "start_date"
+        private const val START_AT = "start_at"
         private const val LEVEL_SEEN = "level_seen_through"
     }
 }

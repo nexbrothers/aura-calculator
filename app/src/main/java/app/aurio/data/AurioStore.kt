@@ -205,10 +205,13 @@ object AurioStore {
         r.reconcileFocus()
         // Android drops pending alarms when exact alarms are turned off or the app is force-stopped.
         r.runningFocus()?.let { FocusAlarm.schedule(app!!, it.endsAt) }
+        // Day one is measured from the install moment, not midnight (DayRules.measureFrom).
+        val startDay = r.startDate()
+        val installedAt = r.installedAt()
         r.settlePastDays { date ->
             when {
                 DebugTime.enabled -> DebugTime.usageByDate[date] ?: emptyMap()
-                granted -> UsageAccess.minutesForDate(context, date)
+                granted -> UsageAccess.minutesForDate(context, date, notBefore = if (date == startDay) installedAt else null)
                 else -> null
             }
         }
@@ -218,7 +221,7 @@ object AurioStore {
         today.value = day
         usageAccess.value = granted
         if (granted) {
-            val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day)
+            val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day, notBefore = r.measureFrom(day))
             r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
         }
     }

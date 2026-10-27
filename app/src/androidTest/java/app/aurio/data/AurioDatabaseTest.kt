@@ -311,10 +311,26 @@ class AurioDatabaseTest {
         assertEquals(20, db.scores().entriesFor("2026-01-01").single().points)
     }
 
-    @Test fun accessOffAfterOnboardingStillCounts() = runBlocking {
+    @Test fun accessOffAfterTheInstallDayStillCounts() = runBlocking {
         repo.markStartDate()
-        repo.markAccessOff(java.time.LocalDate.parse("2026-01-01"))
-        assertTrue(repo.accessWasOff(java.time.LocalDate.parse("2026-01-01")).first())
+        clock.advanceDays(1)
+        repo.markAccessOff(java.time.LocalDate.parse("2026-01-02"))
+        assertTrue(repo.accessWasOff(java.time.LocalDate.parse("2026-01-02")).first())
+    }
+
+    @Test fun accessOffOnTheInstallDayNeverCounts() = runBlocking {
+        repo.markStartDate()
+        repo.markAccessOff(java.time.LocalDate.parse("2026-01-01")) // access turned on late in set-up
+        assertFalse(repo.accessWasOff(java.time.LocalDate.parse("2026-01-01")).first())
+    }
+
+    @Test fun installDayIsMeasuredFromTheInstallMoment() = runBlocking {
+        clock.advanceMinutes(9 * 60) // set up at 09:00
+        repo.markStartDate()
+        val nine = clock.nowMillis()
+        assertEquals(nine, repo.installedAt())
+        assertEquals(nine, repo.measureFrom(java.time.LocalDate.parse("2026-01-01")))
+        assertNull(repo.measureFrom(java.time.LocalDate.parse("2026-01-02")))
     }
 
     @Test fun deleteEverythingEmptiesTables() = runBlocking {
