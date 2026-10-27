@@ -48,7 +48,7 @@ import app.aurio.ui.focus.SessionCompleteScreen
 import app.aurio.ui.home.HomeScreen
 import app.aurio.ui.insights.InsightsScreen
 import app.aurio.ui.limits.LimitsScreen
-import app.aurio.ui.tabs.ProfileScreen
+import app.aurio.ui.profile.ProfileScreen
 import app.aurio.ui.theme.AurioColors
 import app.aurio.ui.theme.AurioType
 
