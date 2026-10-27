@@ -50,7 +50,7 @@ import app.aurio.data.NotCountedReason
 import app.aurio.ui.components.Pill
 import app.aurio.ui.components.PillTone
 import app.aurio.ui.components.signed
-import app.aurio.ui.tabs.LimitStepper
+import app.aurio.ui.components.LimitStepper
 import app.aurio.ui.tabs.tomorrowNote
 import app.aurio.ui.theme.AurioColors
 import app.aurio.ui.theme.AurioRadius

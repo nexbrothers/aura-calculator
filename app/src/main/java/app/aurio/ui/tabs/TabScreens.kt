@@ -83,8 +83,9 @@ import app.aurio.ui.theme.AurioType
 @Composable
 private fun TabPage(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
-            .padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl),
+        // Status bar padding before scrolling, so content never slides under the clock.
+        Modifier.fillMaxSize().background(AurioColors.Paper).statusBarsPadding().verticalScroll(rememberScrollState())
+            .padding(start = AurioSpacing.xl, end = AurioSpacing.xl, top = AurioSpacing.md, bottom = AurioSpacing.xxl),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = AurioType.display)
@@ -95,77 +96,7 @@ private fun TabPage(title: String, action: (@Composable () -> Unit)? = null, con
     }
 }
 
-// ---------------- Limits ----------------
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
-    fun open(app: AppUsage) = Modifier.clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) }
-    val state by AurioStore.state.collectAsStateWithLifecycle()
-    var seg by rememberSaveable { mutableIntStateOf(0) }
-    val cats = listOf(AppCategory.LIMITED to "Limited", AppCategory.NEUTRAL to "Neutral", AppCategory.ESSENTIAL to "Essential")
-
-    TabPage("Limits", action = { TextButton(onClick = onManageApps) { Text("Manage apps", style = AurioType.label) } }) {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            cats.forEachIndexed { i, (_, label) ->
-                SegmentedButton(
-                    selected = seg == i, onClick = { seg = i },
-                    shape = SegmentedButtonDefaults.itemShape(i, cats.size),
-                    colors = SegmentedButtonDefaults.colors(activeContainerColor = AurioColors.Ink, activeContentColor = AurioColors.Surface),
-                ) { Text(label, style = AurioType.label) }
-            }
-        }
-        Spacer(Modifier.height(AurioSpacing.lg))
-        val apps = state.apps.filter { it.category == cats[seg].first }
-        if (apps.isEmpty()) {
-            Text(
-                "No ${cats[seg].second.lowercase()} apps yet. Use Manage apps to add some.",
-                style = AurioType.body, color = AurioColors.InkMuted,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(AurioSpacing.lg),
-            )
-        } else if (cats[seg].first == AppCategory.LIMITED) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                apps.forEach { app ->
-                    val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(horizontal = AurioSpacing.lg)) {
-                        val saved = state.tracked[app.packageName]
-                        LimitRow(usage, open(app), state.notCounted, state.measuredMinutes[app.packageName])
-                        Row(Modifier.fillMaxWidth().padding(bottom = AurioSpacing.md), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            when (val s = AuraScoring.limitStatus(usage)) {
-                                is LimitStatus.Under -> Pill("+${s.projectedBonus} at midnight", PillTone.PROJECTED)
-                                is LimitStatus.Over -> Pill("${signed(-s.penalty)} today", PillTone.LOSS)
-                                else -> Pill(NotCounted.pill(state.notCounted), PillTone.UNKNOWN)
-                            }
-                            val savedLimit = saved?.limitMinutes
-                            if (saved?.category == AppCategory.LIMITED && savedLimit != null) {
-                                LimitStepper(savedLimit, app.label,
-                                    onDec = { AurioStore.setLimit(app.packageName, savedLimit - 5) },
-                                    onInc = { AurioStore.setLimit(app.packageName, savedLimit + 5) })
-                            }
-                        }
-                        tomorrowNote(app, saved)?.let { PendingNote(it) }
-                    }
-                }
-            }
-        } else {
-            GroupedList {
-                apps.forEachIndexed { i, app ->
-                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app), state.notCounted, state.measuredMinutes[app.packageName])
-                    tomorrowNote(app, state.tracked[app.packageName])?.let { PendingNote(it) }
-                    if (i < apps.lastIndex) RowDivider()
-                }
-            }
-        }
-        Spacer(Modifier.height(AurioSpacing.lg))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.SurfaceSunken).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("How limits score", style = AurioType.bodyStrong)
-            RuleRow("+20", PillTone.GAIN, "Day ends under an app's limit")
-            RuleRow("−1", PillTone.LOSS, "Per minute over, up to −60 an app")
-            RuleRow("0", PillTone.NEUTRAL, "Neutral and essential apps")
-            RuleRow("0", PillTone.UNKNOWN, "Not counted while usage access is off")
-        }
-    }
-}
+// ---------------- Limits (shared) ----------------
 
 /**
  * What changes tomorrow when the saved settings differ from the terms scoring today:
@@ -177,44 +108,6 @@ internal fun tomorrowNote(today: AppUsage, saved: AppTerms?): String? = when {
     saved.category == AppCategory.LIMITED && saved.limitMinutes != today.limitMinutes ->
         "Limit is ${today.limitMinutes} min today, ${saved.limitMinutes} min from tomorrow"
     else -> null
-}
-
-@Composable
-private fun PendingNote(text: String) {
-    Text(text, style = AurioType.caption, color = AurioColors.InkSubtle, modifier = Modifier.padding(bottom = AurioSpacing.md))
-}
-
-@Preview
-@Composable
-private fun PendingNotePreview() {
-    AurioTheme { PendingNote("Limit is 30 min today, 45 min from tomorrow") }
-}
-
-@Composable
-private fun RuleRow(amount: String, tone: PillTone, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Pill(amount, tone, minWidth = 48.dp)
-        Spacer(Modifier.width(8.dp))
-        Text(text, style = AurioType.caption.copy(fontSize = 13.sp))
-    }
-}
-
-@Composable
-internal fun LimitStepper(value: Int, appLabel: String, onDec: () -> Unit, onInc: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        StepButton("−", "Decrease $appLabel limit", onDec)
-        Text("$value min", style = AurioType.title.copy(fontSize = 18.sp), textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 72.dp))
-        StepButton("+", "Increase $appLabel limit", onInc)
-    }
-}
-
-@Composable
-private fun StepButton(symbol: String, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = label }) {
-        Box(Modifier.size(40.dp).clip(CircleShape).border(1.dp, AurioColors.Track, CircleShape), contentAlignment = Alignment.Center) {
-            Text(symbol, style = AurioType.title)
-        }
-    }
 }
 
 // ---------------- Insights ----------------

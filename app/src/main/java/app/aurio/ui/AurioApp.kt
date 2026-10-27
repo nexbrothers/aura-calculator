@@ -47,7 +47,7 @@ import app.aurio.ui.focus.FocusSetupScreen
 import app.aurio.ui.focus.SessionCompleteScreen
 import app.aurio.ui.home.HomeScreen
 import app.aurio.ui.tabs.InsightsScreen
-import app.aurio.ui.tabs.LimitsScreen
+import app.aurio.ui.limits.LimitsScreen
 import app.aurio.ui.tabs.ProfileScreen
 import app.aurio.ui.theme.AurioColors
 import app.aurio.ui.theme.AurioType
@@ -141,7 +141,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                 }
                 composable(Tab.FOCUS.route) { FocusSetupScreen(onStarted = { nav.navigate("focus/run") }) }
                 composable(Tab.LIMITS.route) {
-                    LimitsScreen(onManageApps = { nav.navigate("apps/edit") }, onOpenApp = { nav.navigate("app/$it") })
+                    LimitsScreen(onManageApps = { nav.navigate("apps/edit") }, onOpenApp = { nav.navigate("app/$it") }, onTurnOnAccess = onOpenUsageSettings)
                 }
                 composable("app/{pkg}", arguments = listOf(navArgument("pkg") { type = NavType.StringType })) { e ->
                     AppDetailScreen(e.arguments?.getString("pkg").orEmpty(), onBack = { nav.popBackStack() })

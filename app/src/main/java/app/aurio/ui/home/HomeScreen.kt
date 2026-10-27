@@ -55,6 +55,7 @@ import app.aurio.ui.components.AurioCard
 import app.aurio.ui.components.AurioIcons
 import app.aurio.ui.components.CardHeader
 import app.aurio.ui.components.LimitRow
+import app.aurio.ui.components.NotCountedNotice
 import app.aurio.ui.components.Pill
 import app.aurio.ui.components.PillTone
 import app.aurio.ui.components.ProgressBar
@@ -104,11 +105,7 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
     ) {
         Greeting(state, level, onProfile)
         AuraCard(state, displayScore, level, brightness, onLevelClick = { showLevels = true }, onStreakClick = { showStreak = true })
-        when (state.notCounted) {
-            NotCountedReason.ACCESS_OFF -> AccessOffCard(onTurnOnAccess)
-            NotCountedReason.OFF_EARLIER_TODAY -> CountsTomorrowCard()
-            null -> Unit
-        }
+        state.notCounted?.let { NotCountedNotice(it, onTurnOnAccess) }
         LimitsCard(state, onEditLimits, onOpenApp)
         ChangesCard(state)
     }
@@ -255,53 +252,6 @@ private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness
 
 
 @Composable
-private fun AccessOffCard(onTurnOn: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.UnknownBg)
-            .padding(start = AurioSpacing.lg, end = AurioSpacing.sm, top = AurioSpacing.md, bottom = AurioSpacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StrokeIcon(AurioIcons.Info, contentDescription = null, tint = AurioColors.Unknown)
-        Spacer(Modifier.width(AurioSpacing.md))
-        Column(Modifier.weight(1f)) {
-            Text("Usage access is off", style = AurioType.bodyStrong)
-            Text("Your limits are not being tracked yet.", style = AurioType.caption, color = AurioColors.InkSubtle)
-        }
-        Spacer(Modifier.width(AurioSpacing.sm))
-        Box(
-            Modifier.heightIn(min = AurioSpacing.touchMin).clip(CircleShape)
-                .clickable(role = Role.Button, onClickLabel = "Turn on usage access", onClick = onTurnOn)
-                .padding(horizontal = AurioSpacing.xs),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.clip(CircleShape).background(AurioColors.Ink).padding(horizontal = 14.dp, vertical = 8.dp)) {
-                Text("Turn on", style = AurioType.label, color = Color.White)
-            }
-        }
-    }
-}
-
-/** Access is back on, but it was off earlier today, so today is not scored. Nothing is lost. */
-@Composable
-private fun CountsTomorrowCard() {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.UnknownBg)
-            .padding(AurioSpacing.lg),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        StrokeIcon(AurioIcons.Info, contentDescription = null, tint = AurioColors.Unknown)
-        Spacer(Modifier.width(AurioSpacing.md))
-        Column(Modifier.weight(1f)) {
-            Text("Limits count again from tomorrow", style = AurioType.bodyStrong)
-            Text(
-                "Usage access was off earlier today, so today has no limit bonus or penalty. Focus still counts.",
-                style = AurioType.caption, color = AurioColors.InkSubtle,
-            )
-        }
-    }
-}
-
-@Composable
 private fun LimitsCard(state: AurioState, onEditLimits: () -> Unit, onOpenApp: (String) -> Unit) {
     AurioCard(padding = AurioSpacing.lg) {
         CardHeader("Today's limits", actionLabel = if (state.limitedApps.isEmpty()) null else "Edit", onAction = onEditLimits)
@@ -375,10 +325,4 @@ private fun LevelSheet(current: AuraLevel) {
             }
         }
     }
-}
-
-@Preview(widthDp = 360, heightDp = 360, showBackground = true)
-@Composable
-private fun AccessOffCardPreview() {
-    AurioTheme { Column(Modifier.background(AurioColors.Paper).padding(AurioSpacing.xl)) { AccessOffCard(onTurnOn = {}) } }
 }
