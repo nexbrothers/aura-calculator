@@ -87,7 +87,13 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}, onT
 
         when {
             apps.isEmpty() -> EmptyCard(categories[tab].second, onManageApps)
-            category == AppCategory.LIMITED -> apps.forEach { LimitCard(it, state, onOpenApp) }
+            category == AppCategory.LIMITED -> AurioCard(padding = AurioSpacing.lg) {
+                // One card for all limited apps, rows split by hairlines, like the other tabs.
+                apps.forEachIndexed { i, app ->
+                    LimitItem(app, state, onOpenApp)
+                    if (i < apps.lastIndex) RowDivider()
+                }
+            }
             else -> OtherAppsCard(apps, state, onOpenApp)
         }
         RulesCard()
@@ -118,14 +124,14 @@ private fun ImpactPill(usage: AppUsage, state: AurioState) {
 }
 
 @Composable
-private fun LimitCard(app: AppUsage, state: AurioState, onOpenApp: (String) -> Unit) {
+private fun LimitItem(app: AppUsage, state: AurioState, onOpenApp: (String) -> Unit) {
     val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
     val saved = state.tracked[app.packageName]
     val measured = state.measuredMinutes[app.packageName]
     val used = usage.usedMinutes ?: measured
     val over = AuraScoring.limitStatus(usage) is LimitStatus.Over
 
-    AurioCard {
+    Column(Modifier.fillMaxWidth().padding(vertical = AurioSpacing.md)) {
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.tile))
                 .clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) },
