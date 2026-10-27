@@ -35,8 +35,12 @@ val Onest = FontFamily(
 /** Type scale. Display styles use tight letter-spacing for confident numerals. */
 object AurioType {
     val scoreHero = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 128.sp, lineHeight = 116.sp, letterSpacing = (-0.06).em)
+    /** The score inside Home's aura card: big, but leaves the card room to breathe. */
+    val scoreCard = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 112.sp, lineHeight = 104.sp, letterSpacing = (-0.05).em)
     val scoreLarge = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 72.sp, lineHeight = 72.sp, letterSpacing = (-0.04).em)
     val display = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, lineHeight = 36.sp, letterSpacing = (-0.035).em)
+    /** Screen greeting and card headings that sit between display and title. */
+    val heading = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = (-0.03).em)
     val title = TextStyle(fontFamily = Bricolage, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 24.sp, letterSpacing = (-0.03).em)
     val body = TextStyle(fontFamily = Onest, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp)
     val bodyStrong = body.copy(fontWeight = FontWeight.Medium)

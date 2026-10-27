@@ -27,6 +27,17 @@ object AurioColors {
     val UnknownBg = Color(0xFFEEEDF1)
     val Neutral = Color(0xFF5E5D66)
     val NeutralBg = Color(0xFFF1F0EC)
+
+    /** Streak flame icon only (never text): warm, so a streak reads as warmth, not as a gain. */
+    val Streak = Color(0xFFE0702F)
+    /** Soft card shadow: barely there, depth without borders. */
+    val Shadow = Color(0xFF17161C)
+}
+
+/** Subtle depth only. */
+object AurioElevation {
+    val card = 10.dp
+    val hero = 18.dp
 }
 
 /** One aura colour field per level: a base wash plus four drifting blobs. */
