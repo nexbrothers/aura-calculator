@@ -59,6 +59,11 @@ data class AurioState(
     val usageAccess: Boolean = false,
     /** Why today's limits are not being counted, or null when they are. */
     val notCounted: NotCountedReason? = null,
+    /**
+     * Minutes measured today per package while access is on, even on a day that is not counted
+     * ([NotCountedReason.OFF_EARLIER_TODAY]). For display only: scoring always uses [apps].
+     */
+    val measuredMinutes: Map<String, Int> = emptyMap(),
     val streakDays: Int = 0,
     val bestStreak: Int = 0,
     val running: FocusSessionEntity? = null,
@@ -121,6 +126,7 @@ object AurioStore {
                     apps = apps,
                     tracked = current,
                     usageAccess = day.access,
+                    measuredMinutes = if (day.access) minutes.mapNotNull { (k, v) -> v?.let { k to it } }.toMap() else emptyMap(),
                     notCounted = when {
                         !day.access -> NotCountedReason.ACCESS_OFF
                         day.accessWasOff -> NotCountedReason.OFF_EARLIER_TODAY

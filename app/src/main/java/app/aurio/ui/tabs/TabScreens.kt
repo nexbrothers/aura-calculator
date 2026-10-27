@@ -129,7 +129,7 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
                     val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(horizontal = AurioSpacing.lg)) {
                         val saved = state.tracked[app.packageName]
-                        LimitRow(usage, open(app), state.notCounted)
+                        LimitRow(usage, open(app), state.notCounted, state.measuredMinutes[app.packageName])
                         Row(Modifier.fillMaxWidth().padding(bottom = AurioSpacing.md), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             when (val s = AuraScoring.limitStatus(usage)) {
                                 is LimitStatus.Under -> Pill("+${s.projectedBonus} at midnight", PillTone.PROJECTED)
@@ -150,7 +150,7 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
         } else {
             GroupedList {
                 apps.forEachIndexed { i, app ->
-                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app), state.notCounted)
+                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app), state.notCounted, state.measuredMinutes[app.packageName])
                     tomorrowNote(app, state.tracked[app.packageName])?.let { PendingNote(it) }
                     if (i < apps.lastIndex) RowDivider()
                 }

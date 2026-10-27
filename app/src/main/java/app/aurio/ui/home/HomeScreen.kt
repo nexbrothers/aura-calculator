@@ -318,6 +318,7 @@ private fun LimitsCard(state: AurioState, onEditLimits: () -> Unit, onOpenApp: (
                     if (state.usageAccess) app else app.copy(usedMinutes = null),
                     Modifier.clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) },
                     notCounted = state.notCounted,
+                    measured = state.measuredMinutes[app.packageName],
                 )
                 if (i < state.limitedApps.lastIndex) RowDivider()
             }

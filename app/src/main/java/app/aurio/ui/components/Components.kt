@@ -136,7 +136,7 @@ fun AppTile(label: String, modifier: Modifier = Modifier, size: Dp = 40.dp, pack
 // ---------- Rows ----------
 
 @Composable
-fun LimitRow(app: AppUsage, modifier: Modifier = Modifier, notCounted: NotCountedReason? = null) {
+fun LimitRow(app: AppUsage, modifier: Modifier = Modifier, notCounted: NotCountedReason? = null, measured: Int? = null) {
     val status = AuraScoring.limitStatus(app)
     val used = app.usedMinutes
     val (pillText, tone) = when (status) {
@@ -155,19 +155,32 @@ fun LimitRow(app: AppUsage, modifier: Modifier = Modifier, notCounted: NotCounte
                 Pill(pillText, tone)
             }
             Spacer(Modifier.height(7.dp))
+            // On a day that is not counted, time measured since access came back is still shown,
+            // in grey, so the row never looks broken; it earns no bonus and costs nothing.
+            val shownMinutes = used ?: measured
             ProgressBar(
-                fraction = if (used == null) 0f else used.toFloat() / app.limitMinutes,
-                color = if (over) AurioColors.Loss else AurioColors.Ink,
+                fraction = if (shownMinutes == null) 0f else shownMinutes.toFloat() / app.limitMinutes,
+                color = when {
+                    over -> AurioColors.Loss
+                    used == null -> AurioColors.InkSubtle
+                    else -> AurioColors.Ink
+                },
                 track = if (over) AurioColors.LossBg else AurioColors.Track,
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                // The pill and Home's notice say why it is not counted; the row adds the limit itself.
-                if (used == null) "${app.limitMinutes} min limit" else "$used of ${app.limitMinutes} min used",
+                limitCaption(used, measured, app.limitMinutes),
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
         }
     }
+}
+
+/** The line under a limit's bar. The pill and Home's notice say why a day is not counted. */
+internal fun limitCaption(used: Int?, measured: Int?, limit: Int): String = when {
+    used != null -> "$used of $limit min used"
+    measured != null -> "$measured of $limit min used, not counted today"
+    else -> "$limit min limit"
 }
 
 @Composable

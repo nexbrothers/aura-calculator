@@ -98,7 +98,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
         if (todayUsage != null) {
             Card(Modifier.padding(top = AurioSpacing.xl)) {
                 Text("Today", style = AurioType.caption, color = AurioColors.InkSubtle)
-                LimitRow(todayUsage, notCounted = state.notCounted)
+                LimitRow(todayUsage, notCounted = state.notCounted, measured = state.measuredMinutes[packageName])
                 note?.let { Text(it, style = AurioType.caption, color = AurioColors.InkSubtle) }
             }
         }
