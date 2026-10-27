@@ -14,7 +14,7 @@ object AurioColors {
     val Paper = Color(0xFFF6F6F3)
     val Surface = Color(0xFFFFFFFF)
     val SurfaceSunken = Color(0xFFEDEBE4)
-    val Divider = Color(0xFFF1F0EC)
+    val Divider = Color(0xFFE4E3DE) // visible on white cards, still quieter than any text
     val Track = Color(0xFFEEEDF1)
 
     val Gain = Color(0xFF0E9467)
