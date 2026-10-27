@@ -60,7 +60,6 @@ import app.aurio.data.AurioStore
 import app.aurio.domain.AppCategory
 import app.aurio.domain.AppTerms
 import app.aurio.ui.theme.AurioTheme
-import app.aurio.ui.insights.AuraCalendar
 import androidx.compose.ui.tooling.preview.Preview
 import app.aurio.domain.AppUsage
 import app.aurio.domain.AuraScoring
@@ -109,87 +108,6 @@ internal fun tomorrowNote(today: AppUsage, saved: AppTerms?): String? = when {
         "Limit is ${today.limitMinutes} min today, ${saved.limitMinutes} min from tomorrow"
     else -> null
 }
-
-// ---------------- Insights ----------------
-
-@Composable
-fun InsightsScreen() {
-    val state by AurioStore.state.collectAsStateWithLifecycle()
-    val today = app.aurio.domain.SystemAurioClock.today()
-    val byDate = state.history.associate { it.date to it.delta }
-    val dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
-    // Past days are frozen at midnight; today is live and still projected.
-    val week = dates.map { d -> if (d == today) state.daily.total else byDate[d.toString()] ?: 0 }
-    val days = dates.map { it.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) }
-    val settledDays = dates.count { it != today && byDate.containsKey(it.toString()) }
-
-    TabPage("Insights") {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(18.dp)) {
-            Text("Last 7 days", style = AurioType.caption.copy(fontSize = 13.sp), color = AurioColors.InkSubtle)
-            Text(signed(week.sum()), style = AurioType.scoreLarge.copy(fontSize = 56.sp))
-            Spacer(Modifier.height(AurioSpacing.lg))
-            WeekBars(week, days)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (settledDays == 0) "Past days appear here after each midnight. Today is projected until then."
-                else "Today is projected until midnight",
-                style = AurioType.caption, color = AurioColors.InkSubtle,
-            )
-        }
-        Row(Modifier.fillMaxWidth().padding(top = AurioSpacing.md), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatCard("Best streak", if (state.bestStreak == 1) "1 day" else "${state.bestStreak} days", Modifier.weight(1f))
-            StatCard("Days tracked", "${state.history.size}", Modifier.weight(1f))
-        }
-        Text("Your aura by day", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = 10.dp))
-        AuraCalendar(state.history, today)
-        Text("Today, line by line", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = 10.dp))
-        GroupedList {
-            if (state.daily.lines.isEmpty()) {
-                Text("Nothing yet today.", style = AurioType.body, color = AurioColors.InkMuted, modifier = Modifier.padding(vertical = 14.dp))
-                RowDivider()
-            }
-            state.daily.lines.forEach { ScoreChangeRow(it); RowDivider() }
-            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Total", style = AurioType.bodyStrong)
-                Text(signed(state.daily.total), style = AurioType.title.copy(fontSize = 22.sp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(AurioSpacing.lg)) {
-        Text(label, style = AurioType.caption, color = AurioColors.InkSubtle)
-        Text(value, style = AurioType.title)
-    }
-}
-
-@Composable
-private fun WeekBars(values: List<Int>, days: List<String>) {
-    val maxAbs = (values.maxOf { kotlin.math.abs(it) }).coerceAtLeast(1)
-    val half = 70.dp
-    Row(Modifier.fillMaxWidth().height(half * 2 + 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        values.forEachIndexed { i, v ->
-            val today = i == values.lastIndex
-            val barH = half * (kotlin.math.abs(v).toFloat() / maxAbs)
-            Column(Modifier.weight(1f).semantics { contentDescription = "${days[i]}, ${signed(v)} aura" }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.height(half).fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                    if (v >= 0) Bar(barH, if (today) AurioColors.Gain.copy(alpha = 0.55f) else AurioColors.Gain)
-                }
-                Box(Modifier.height(1.dp).fillMaxWidth().background(AurioColors.Track))
-                Box(Modifier.height(half - 1.dp).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    if (v < 0) Bar(barH, AurioColors.Loss)
-                }
-                Text(days[i], style = AurioType.caption.copy(fontSize = 12.sp), color = AurioColors.InkSubtle)
-            }
-        }
-    }
-}
-
-@Composable
-private fun Bar(h: androidx.compose.ui.unit.Dp, color: androidx.compose.ui.graphics.Color) =
-    Box(Modifier.padding(horizontal = 4.dp).fillMaxWidth().height(h.coerceAtLeast(4.dp)).clip(RoundedCornerShape(8.dp)).background(color))
 
 // ---------------- Profile ----------------
 

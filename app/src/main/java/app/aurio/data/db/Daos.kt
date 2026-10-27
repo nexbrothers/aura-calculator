@@ -80,6 +80,10 @@ interface FocusSessionDao {
     @Query("SELECT * FROM focus_session WHERE date = :date ORDER BY startedAt")
     fun observeDate(date: String): Flow<List<FocusSessionEntity>>
 
+    /** Completed focus minutes on dates from [from] on (Insights' focus time). */
+    @Query("SELECT COALESCE(SUM(creditedMinutes), 0) FROM focus_session WHERE status = 'COMPLETED' AND date >= :from")
+    fun observeFocusMinutesSince(from: String): Flow<Int>
+
     @Query("SELECT * FROM focus_session WHERE status = 'RUNNING' LIMIT 1")
     fun observeRunning(): Flow<FocusSessionEntity?>
 

@@ -51,6 +51,11 @@ class AurioRepository(
     fun appPoints(pkg: String, from: LocalDate, until: LocalDate): Flow<List<Int>> =
         db.scores().observePointsFor(pkg, from.toString(), until.toString())
 
+    fun focusMinutesSince(from: LocalDate): Flow<Int> = db.focusSessions().observeFocusMinutesSince(from.toString())
+
+    /** The install day once onboarding has finished, else null. */
+    fun startDateFlow(): Flow<LocalDate?> = db.meta().observe(START_DATE).map { it?.let(LocalDate::parse) }
+
     // ---- Tracked apps -------------------------------------------------------------------
 
     // Edits change tracked_app, which is what tomorrow uses. Today keeps the terms recorded

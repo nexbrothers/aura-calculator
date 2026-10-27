@@ -260,6 +260,12 @@ object AurioStore {
         return repo.appPoints(packageName, today.minusDays(7), today)
     }
 
+    /** Completed focus minutes over the last 7 days, today included. */
+    fun focusMinutesLastWeek(): Flow<Int> = repo.focusMinutesSince(SystemAurioClock.today().minusDays(6))
+
+    /** The install day; days before it have no score to show. */
+    fun startDate(): Flow<java.time.LocalDate?> = repo.startDateFlow()
+
     // ---- Focus ---------------------------------------------------------------------------
 
     suspend fun startFocus(minutes: Int) {

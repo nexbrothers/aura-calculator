@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import app.aurio.data.db.DailyScoreEntity
 import app.aurio.domain.AuraLevel
 import app.aurio.domain.History
+import app.aurio.ui.components.AurioCard
 import app.aurio.ui.components.signed
 import app.aurio.ui.theme.AuraPalettes
 import app.aurio.ui.theme.AurioColors
@@ -56,17 +57,17 @@ import java.util.Locale
  * that out to screen readers. Today is outlined and stays blank until it settles at midnight.
  */
 @Composable
-fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Modifier = Modifier) {
+fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Modifier = Modifier, startDate: LocalDate? = null) {
     val byDate = history.associateBy { LocalDate.parse(it.date) }
     val thisMonth = YearMonth.from(today)
-    val firstMonth = history.minOfOrNull { YearMonth.from(LocalDate.parse(it.date)) } ?: thisMonth
+    val firstMonth = (history.map { YearMonth.from(LocalDate.parse(it.date)) } + listOfNotNull(startDate?.let(YearMonth::from))).minOrNull() ?: thisMonth
     var month by rememberSaveable { mutableStateOf(thisMonth.toString()) }
     val shown = YearMonth.parse(month)
     var selected by rememberSaveable { mutableStateOf(history.maxByOrNull { it.date }?.date) }
     val locale = Locale.getDefault()
     val firstDay = WeekFields.of(locale).firstDayOfWeek
 
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(18.dp)) {
+    AurioCard(modifier, padding = 18.dp) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 shown.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
@@ -94,7 +95,7 @@ fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Mo
                 week.forEach { date ->
                     Box(Modifier.weight(1f).aspectRatio(1f).padding(vertical = 2.dp)) {
                         if (date != null) {
-                            DayCell(date, byDate[date], isToday = date == today, isFuture = date.isAfter(today), isSelected = selected == date.toString()) {
+                            DayCell(date, byDate[date], isToday = date == today, isFuture = date.isAfter(today) || (startDate != null && date.isBefore(startDate)), isSelected = selected == date.toString()) {
                                 selected = date.toString()
                             }
                         }
@@ -114,7 +115,8 @@ fun AuraCalendar(history: List<DailyScoreEntity>, today: LocalDate, modifier: Mo
 
 @Composable
 private fun DayCell(date: LocalDate, day: DailyScoreEntity?, isToday: Boolean, isFuture: Boolean, isSelected: Boolean, onSelect: () -> Unit) {
-    // Settled days carry their aura; past days without a score are grey; days to come are blank.
+    // Settled days carry their aura; past days without a score are grey; days to come, and days
+    // before Aurio was installed, are blank.
     val fill = day?.let { AuraPalettes.of(AuraLevel.of(it.totalAfter)).c1 }
         ?: if (isFuture) AurioColors.Surface else AurioColors.Track.copy(alpha = 0.5f)
     val ring = when {
