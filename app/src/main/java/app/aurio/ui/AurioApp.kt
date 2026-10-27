@@ -133,7 +133,6 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
             NavHost(nav, startDestination = Tab.HOME.route) {
                 composable(Tab.HOME.route) {
                     HomeScreen(
-                        onStartFocus = { goTab(Tab.FOCUS.route) },
                         onEditLimits = { goTab(Tab.LIMITS.route) },
                         onProfile = { goTab(Tab.PROFILE.route) },
                         onTurnOnAccess = onOpenUsageSettings,

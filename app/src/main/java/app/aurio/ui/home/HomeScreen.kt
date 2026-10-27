@@ -8,8 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,7 +56,6 @@ import app.aurio.ui.components.CardHeader
 import app.aurio.ui.components.LimitRow
 import app.aurio.ui.components.Pill
 import app.aurio.ui.components.PillTone
-import app.aurio.ui.components.PrimaryButton
 import app.aurio.ui.components.ProgressBar
 import app.aurio.ui.components.RowDivider
 import app.aurio.ui.components.ScoreChangeRow
@@ -75,13 +72,13 @@ import app.aurio.ui.theme.AurioType
 import java.time.format.DateTimeFormatter
 
 /**
- * Home, laid out as the approved prototype: greeting, the aura card (the one bold thing),
- * streak and focus at a glance, the main action, then today's limits and what changed.
- * Everything below the status bar scrolls; nothing slides under the clock.
+ * Home answers two questions at a glance: where is my aura, and how are today's limits going.
+ * Greeting, the aura card (the one bold thing), today's limits, and what changed. Focus lives
+ * in its own tab. Everything below the status bar scrolls; nothing slides under the clock.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onStartFocus: () -> Unit, onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit, onOpenApp: (String) -> Unit = {}) {
+fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit, onOpenApp: (String) -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     var showLevels by rememberSaveable { mutableStateOf(false) }
 
@@ -105,13 +102,6 @@ fun HomeScreen(onStartFocus: () -> Unit, onEditLimits: () -> Unit, onProfile: ()
     ) {
         Greeting(state, level, onProfile)
         AuraCard(state, displayScore, level, brightness, onLevelClick = { showLevels = true })
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {
-            StreakCard(state, Modifier.weight(1f).fillMaxHeight())
-            FocusCard(state, Modifier.weight(1f).fillMaxHeight())
-        }
-        PrimaryButton("Start focus session", onStartFocus, leading = {
-            StrokeIcon(AurioIcons.Timer, contentDescription = null, tint = Color.White, size = 18.dp)
-        })
         if (!state.usageAccess) AccessOffCard(onTurnOnAccess)
         LimitsCard(state, onEditLimits, onOpenApp)
         ChangesCard(state)
@@ -206,34 +196,6 @@ private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness
     }
 }
 
-@Composable
-private fun StreakCard(state: AurioState, modifier: Modifier) {
-    AurioCard(modifier, padding = AurioSpacing.md, verticalArrangement = Arrangement.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StrokeIcon(AurioIcons.Flame, contentDescription = null, tint = AurioColors.Streak)
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(
-                    if (state.streakDays == 0) "No streak yet" else "${state.streakDays}-day streak",
-                    style = AurioType.bodyStrong,
-                )
-                Text("Best: ${days(state.bestStreak)}", style = AurioType.caption, color = AurioColors.InkSubtle)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FocusCard(state: AurioState, modifier: Modifier) {
-    AurioCard(modifier, padding = AurioSpacing.md) {
-        Text("${state.daily.focusAura} of 100", style = AurioType.bodyStrong)
-        Text("focus aura today", style = AurioType.caption, color = AurioColors.InkSubtle)
-        Spacer(Modifier.height(6.dp))
-        ProgressBar(state.daily.focusAura / 100f, color = AurioColors.Gain, track = AurioColors.GainBg)
-    }
-}
-
-private fun days(n: Int) = if (n == 1) "1 day" else "$n days"
 
 @Composable
 private fun AccessOffCard(onTurnOn: () -> Unit) {
