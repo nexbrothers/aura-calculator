@@ -30,7 +30,7 @@ Spend boldness only there. Everything else is quiet: ink on paper, white surface
 - Primary action: `PrimaryButton` (black pill). Secondary: `SecondaryButton`.
 - Status: `Pill` with a `PillTone`. Every pill has text; never signal state with colour alone.
 - Lists: `GroupedList` + `RowDivider`. Do not wrap every row in its own card.
-- Apps: `AppTile` (pastel square + initial). Never real brand logos.
+- Apps: `AppTile` with `packageName`: the app's own icon from the phone (owner's decision, 2026-10-28), falling back to a pastel square + initial. Never draw or bundle brand logos ourselves; store screenshots should use sample apps.
 - Numbers: Bricolage, tight tracking, use `signed()` for +/− (real minus sign U+2212).
 
 ## Copy

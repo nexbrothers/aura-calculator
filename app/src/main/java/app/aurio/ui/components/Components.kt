@@ -1,5 +1,6 @@
 package app.aurio.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -114,9 +115,17 @@ private val tilePastels = listOf(
     Color(0xFFE2F6EC), Color(0xFFECE8F5), Color(0xFFFFE7D6),
 )
 
-/** No real brand logos: a pastel rounded square with the app's initial. */
+/**
+ * An app as the user knows it: its own icon from this phone when [packageName] is given and
+ * installed, otherwise a pastel rounded square with its initial.
+ */
 @Composable
-fun AppTile(label: String, modifier: Modifier = Modifier, size: Dp = 40.dp) {
+fun AppTile(label: String, modifier: Modifier = Modifier, size: Dp = 40.dp, packageName: String? = null) {
+    val icon = rememberAppIcon(packageName, size)
+    if (icon != null) {
+        Image(icon, contentDescription = label, modifier = modifier.size(size))
+        return
+    }
     val bg = tilePastels[(label.hashCode() and 0x7fffffff) % tilePastels.size]
     Box(
         modifier.size(size).clip(RoundedCornerShape(AurioRadius.tile)).background(bg).semantics { contentDescription = label },
@@ -138,7 +147,7 @@ fun LimitRow(app: AppUsage, modifier: Modifier = Modifier, notCounted: NotCounte
     }
     val over = status is LimitStatus.Over
     Row(modifier.fillMaxWidth().padding(vertical = AurioSpacing.md), verticalAlignment = Alignment.CenterVertically) {
-        AppTile(app.label)
+        AppTile(app.label, packageName = app.packageName)
         Spacer(Modifier.width(AurioSpacing.md))
         Column(Modifier.weight(1f)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

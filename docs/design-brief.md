@@ -16,7 +16,7 @@ PLATFORM AND FORMAT
 - Light mode only
 - Bottom navigation with 5 tabs: Home, Focus, Limits, Insights, Profile
 - Use realistic content throughout (user name "Riya", real app names, real numbers); no lorem ipsum
-- Do not use real brand logos; show apps as rounded-square tiles with the app's initial on a soft pastel colour
+- Do not draw or bundle real brand logos. In the app, show each app's own installed icon from the phone (owner's decision, 28 Oct 2026); fall back to a rounded-square tile with the app's initial on a soft pastel colour
 
 VISUAL DIRECTION
 - Signature element: the AURA. A soft, glowing, grainy gradient colour field, inspired by aura photography, with slowly drifting blobs of pink, orange, yellow, mint, sky blue and lilac. The aura's colours change with the user's level:

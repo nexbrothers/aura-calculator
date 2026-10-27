@@ -105,7 +105,7 @@ fun AppPicker(
                             .background(AurioColors.Surface).padding(AurioSpacing.md),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AppTile(app.label)
+                            AppTile(app.label, packageName = app.pkg)
                             Spacer(Modifier.width(AurioSpacing.md))
                             Text(app.label, style = AurioType.bodyStrong, modifier = Modifier.weight(1f))
                         }

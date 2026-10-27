@@ -87,7 +87,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
             Text("Back", style = AurioType.label, color = AurioColors.Ink)
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = AurioSpacing.sm)) {
-            AppTile(label, size = 56.dp)
+            AppTile(label, size = 56.dp, packageName = packageName)
             Spacer(Modifier.width(AurioSpacing.md))
             Column {
                 Text(label, style = AurioType.display)
