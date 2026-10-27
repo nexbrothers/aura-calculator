@@ -45,6 +45,8 @@ import app.aurio.domain.LimitStatus
 import app.aurio.domain.SystemAurioClock
 import app.aurio.ui.components.AppTile
 import app.aurio.ui.components.LimitRow
+import app.aurio.ui.components.NotCounted
+import app.aurio.data.NotCountedReason
 import app.aurio.ui.components.Pill
 import app.aurio.ui.components.PillTone
 import app.aurio.ui.components.signed
@@ -96,7 +98,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
         if (todayUsage != null) {
             Card(Modifier.padding(top = AurioSpacing.xl)) {
                 Text("Today", style = AurioType.caption, color = AurioColors.InkSubtle)
-                LimitRow(todayUsage)
+                LimitRow(todayUsage, notCounted = state.notCounted)
                 note?.let { Text(it, style = AurioType.caption, color = AurioColors.InkSubtle) }
             }
         }
@@ -109,7 +111,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
             val pastDays = week.dropLast(1).count { it.state != DayBar.State.NO_DATA }
             Text(
                 if (pastDays == 0) "Bars fill in one day at a time from when you added the app. The line is that day's limit."
-                else "The line on each day is the limit that applied then. ? means usage access was off.",
+                else "The line on each day is the limit that applied then. ? means that day was not tracked.",
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
         }
@@ -149,7 +151,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
         }
 
         Text("Aura impact", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = AurioSpacing.sm))
-        ImpactCard(History.impact(points), todayUsage?.let { AuraScoring.limitStatus(it) })
+        ImpactCard(History.impact(points), todayUsage?.let { AuraScoring.limitStatus(it) }, state.notCounted)
         Spacer(Modifier.height(AurioSpacing.xxl))
     }
 }
@@ -169,7 +171,7 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 }
 
 @Composable
-private fun ImpactCard(impact: AppImpact, today: LimitStatus?) {
+private fun ImpactCard(impact: AppImpact, today: LimitStatus?, notCounted: NotCountedReason? = null) {
     Card {
         Text("Last 7 days, settled", style = AurioType.caption, color = AurioColors.InkSubtle)
         Text(signed(impact.total), style = AurioType.scoreLarge)
@@ -186,7 +188,7 @@ private fun ImpactCard(impact: AppImpact, today: LimitStatus?) {
             when (today) {
                 is LimitStatus.Under -> Pill("+${today.projectedBonus} at midnight", PillTone.PROJECTED)
                 is LimitStatus.Over -> Pill("${signed(-today.penalty)} today", PillTone.LOSS)
-                LimitStatus.Unknown -> Pill("Unknown", PillTone.UNKNOWN)
+                LimitStatus.Unknown -> Pill(NotCounted.pill(notCounted), PillTone.UNKNOWN)
                 LimitStatus.NotScored -> Pill("Never changes aura", PillTone.NEUTRAL)
                 null -> Pill("Not scored today", PillTone.NEUTRAL)
             }
@@ -252,7 +254,7 @@ private fun barTextColor(bar: DayBar): Color = if (bar.state == DayBar.State.OVE
 
 internal fun barDescription(day: String, bar: DayBar): String = when (bar.state) {
     DayBar.State.NO_DATA -> "$day, no data"
-    DayBar.State.UNKNOWN -> "$day, unknown, usage access was off"
+    DayBar.State.UNKNOWN -> "$day, not tracked, usage access was off"
     DayBar.State.NOT_SCORED -> "$day, ${bar.minutes} min, not scored"
     DayBar.State.UNDER -> "$day, ${bar.minutes} of ${bar.limitMinutes} min, under the limit"
     DayBar.State.OVER -> "$day, ${bar.minutes} of ${bar.limitMinutes} min, ${(bar.minutes ?: 0) - (bar.limitMinutes ?: 0)} over"

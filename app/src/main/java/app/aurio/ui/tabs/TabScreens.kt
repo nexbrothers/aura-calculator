@@ -68,6 +68,7 @@ import app.aurio.domain.LimitStatus
 import app.aurio.ui.components.AuraField
 import app.aurio.ui.components.GroupedList
 import app.aurio.ui.components.LimitRow
+import app.aurio.ui.components.NotCounted
 import app.aurio.ui.components.Pill
 import app.aurio.ui.components.PillTone
 import app.aurio.ui.components.RowDivider
@@ -128,12 +129,12 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
                     val usage = if (state.usageAccess) app else app.copy(usedMinutes = null)
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(horizontal = AurioSpacing.lg)) {
                         val saved = state.tracked[app.packageName]
-                        LimitRow(usage, open(app))
+                        LimitRow(usage, open(app), state.notCounted)
                         Row(Modifier.fillMaxWidth().padding(bottom = AurioSpacing.md), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             when (val s = AuraScoring.limitStatus(usage)) {
                                 is LimitStatus.Under -> Pill("+${s.projectedBonus} at midnight", PillTone.PROJECTED)
                                 is LimitStatus.Over -> Pill("${signed(-s.penalty)} today", PillTone.LOSS)
-                                else -> Pill("Unknown", PillTone.UNKNOWN)
+                                else -> Pill(NotCounted.pill(state.notCounted), PillTone.UNKNOWN)
                             }
                             val savedLimit = saved?.limitMinutes
                             if (saved?.category == AppCategory.LIMITED && savedLimit != null) {
@@ -149,7 +150,7 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
         } else {
             GroupedList {
                 apps.forEachIndexed { i, app ->
-                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app))
+                    LimitRow(if (state.usageAccess) app else app.copy(usedMinutes = null), open(app), state.notCounted)
                     tomorrowNote(app, state.tracked[app.packageName])?.let { PendingNote(it) }
                     if (i < apps.lastIndex) RowDivider()
                 }
@@ -161,7 +162,7 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}) {
             RuleRow("+20", PillTone.GAIN, "Day ends under an app's limit")
             RuleRow("−1", PillTone.LOSS, "Per minute over, up to −60 an app")
             RuleRow("0", PillTone.NEUTRAL, "Neutral and essential apps")
-            RuleRow("?", PillTone.UNKNOWN, "Unknown when usage access is off")
+            RuleRow("0", PillTone.UNKNOWN, "Not counted while usage access is off")
         }
     }
 }
@@ -347,7 +348,7 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
 
         Text("Privacy", style = AurioType.title, modifier = Modifier.padding(top = 28.dp, bottom = 10.dp))
         GroupedList {
-            ToggleRow("Usage access", if (state.usageAccess) "On. Tap to change in Settings" else "Off. Limits show as Unknown", state.usageAccess) { onOpenUsageSettings() }
+            ToggleRow("Usage access", if (state.usageAccess) "On. Tap to change in Settings" else "Off. Limits are not tracked", state.usageAccess) { onOpenUsageSettings() }
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

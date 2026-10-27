@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.aurio.data.NotCountedReason
 import app.aurio.domain.AppUsage
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.LimitStatus
@@ -126,13 +127,13 @@ fun AppTile(label: String, modifier: Modifier = Modifier, size: Dp = 40.dp) {
 // ---------- Rows ----------
 
 @Composable
-fun LimitRow(app: AppUsage, modifier: Modifier = Modifier) {
+fun LimitRow(app: AppUsage, modifier: Modifier = Modifier, notCounted: NotCountedReason? = null) {
     val status = AuraScoring.limitStatus(app)
     val used = app.usedMinutes
     val (pillText, tone) = when (status) {
         is LimitStatus.Under -> "${status.minutesLeft} min left" to PillTone.NEUTRAL
         is LimitStatus.Over -> "${status.minutesOver} min over" to PillTone.LOSS
-        LimitStatus.Unknown -> "Unknown" to PillTone.UNKNOWN
+        LimitStatus.Unknown -> NotCounted.pill(notCounted) to PillTone.UNKNOWN
         LimitStatus.NotScored -> "Never changes aura" to PillTone.NEUTRAL
     }
     val over = status is LimitStatus.Over
@@ -152,7 +153,8 @@ fun LimitRow(app: AppUsage, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(5.dp))
             Text(
-                if (used == null) "No usage data" else "$used of ${app.limitMinutes} min used",
+                // The pill and Home's notice say why it is not counted; the row adds the limit itself.
+                if (used == null) "${app.limitMinutes} min limit" else "$used of ${app.limitMinutes} min used",
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
         }

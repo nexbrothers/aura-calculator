@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.data.AurioState
 import app.aurio.data.AurioStore
+import app.aurio.data.NotCountedReason
 import app.aurio.domain.AuraLevel
 import app.aurio.domain.SystemAurioClock
 import app.aurio.ui.components.AuraField
@@ -81,6 +82,7 @@ import java.time.format.DateTimeFormatter
 fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit, onOpenApp: (String) -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     var showLevels by rememberSaveable { mutableStateOf(false) }
+    var showStreak by rememberSaveable { mutableStateOf(false) }
 
     // Score micro-interaction: tick from the last shown value to the new one; brighten on gain.
     val shown = remember { Animatable(state.score.toFloat()) }
@@ -101,8 +103,12 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
         verticalArrangement = Arrangement.spacedBy(AurioSpacing.lg),
     ) {
         Greeting(state, level, onProfile)
-        AuraCard(state, displayScore, level, brightness, onLevelClick = { showLevels = true })
-        if (!state.usageAccess) AccessOffCard(onTurnOnAccess)
+        AuraCard(state, displayScore, level, brightness, onLevelClick = { showLevels = true }, onStreakClick = { showStreak = true })
+        when (state.notCounted) {
+            NotCountedReason.ACCESS_OFF -> AccessOffCard(onTurnOnAccess)
+            NotCountedReason.OFF_EARLIER_TODAY -> CountsTomorrowCard()
+            null -> Unit
+        }
         LimitsCard(state, onEditLimits, onOpenApp)
         ChangesCard(state)
     }
@@ -111,6 +117,53 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
         ModalBottomSheet(onDismissRequest = { showLevels = false }, containerColor = AurioColors.Surface) {
             LevelSheet(current = level)
         }
+    }
+    if (showStreak) {
+        ModalBottomSheet(onDismissRequest = { showStreak = false }, containerColor = AurioColors.Surface) {
+            StreakSheet(current = state.streakDays, best = state.bestStreak)
+        }
+    }
+}
+
+internal fun streakLabel(days: Int): String = if (days == 0) "No streak yet" else "$days-day streak"
+
+@Composable
+private fun StreakChip(days: Int, best: Int, onClick: () -> Unit) {
+    Row(
+        Modifier.heightIn(min = 36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.6f))
+            .clickable(role = Role.Button, onClickLabel = "What counts as a streak", onClick = onClick)
+            .clearAndSetSemantics { contentDescription = "${streakLabel(days)}, best ${days(best)}" }
+            .padding(start = 10.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StrokeIcon(AurioIcons.Flame, contentDescription = null, tint = AurioColors.Streak, size = 16.dp)
+        Spacer(Modifier.width(6.dp))
+        Text(streakLabel(days), style = AurioType.label)
+    }
+}
+
+private fun days(n: Int) = if (n == 1) "1 day" else "$n days"
+
+@Composable
+private fun StreakSheet(current: Int, best: Int) {
+    Column(Modifier.padding(start = AurioSpacing.xl, end = AurioSpacing.xl, bottom = AurioSpacing.xxxl)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StrokeIcon(AurioIcons.Flame, contentDescription = null, tint = AurioColors.Streak, size = 24.dp)
+            Spacer(Modifier.width(AurioSpacing.sm))
+            Text(streakLabel(current), style = AurioType.heading)
+        }
+        Spacer(Modifier.height(AurioSpacing.xs))
+        Text("Best so far: ${days(best)}", style = AurioType.body, color = AurioColors.InkMuted)
+        Spacer(Modifier.height(AurioSpacing.lg))
+        Text("A day counts towards your streak when you either:", style = AurioType.bodyStrong)
+        Spacer(Modifier.height(AurioSpacing.sm))
+        Text("Finish a focus session, or", style = AurioType.body)
+        Text("Stay under every limit you set", style = AurioType.body)
+        Spacer(Modifier.height(AurioSpacing.md))
+        Text(
+            "Days are checked at midnight. A day without either starts the streak again.",
+            style = AurioType.caption, color = AurioColors.InkSubtle,
+        )
     }
 }
 
@@ -151,11 +204,11 @@ private fun Greeting(state: AurioState, level: AuraLevel, onProfile: () -> Unit)
 }
 
 @Composable
-private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness: Float, onLevelClick: () -> Unit) {
+private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness: Float, onLevelClick: () -> Unit, onStreakClick: () -> Unit) {
     val shape = RoundedCornerShape(AurioRadius.hero)
     val palette = AuraPalettes.of(level)
     Box(
-        Modifier.fillMaxWidth().height(296.dp)
+        Modifier.fillMaxWidth().height(312.dp)
             .shadow(AurioElevation.hero, shape, ambientColor = palette.c1, spotColor = palette.c1)
             .clip(shape),
     ) {
@@ -175,12 +228,16 @@ private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness
                 Spacer(Modifier.weight(1f))
                 Pill("${signed(state.daily.total)} today", PillTone.ON_AURA)
             }
-            Spacer(Modifier.height(AurioSpacing.xl))
+            Spacer(Modifier.height(AurioSpacing.md))
             Text(
                 "$score", style = AurioType.scoreCard,
                 modifier = Modifier.clearAndSetSemantics { contentDescription = "Aura score $score, level ${level.label}" },
             )
-            Text("aura points", style = AurioType.label, color = AurioColors.Ink.copy(alpha = 0.72f))
+            // The streak sits beside the score it builds, in the card's open space.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("aura points", style = AurioType.label, color = AurioColors.Ink.copy(alpha = 0.72f), modifier = Modifier.weight(1f))
+                StreakChip(state.streakDays, state.bestStreak, onStreakClick)
+            }
             Spacer(Modifier.weight(1f))
             val next = level.next
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -208,7 +265,7 @@ private fun AccessOffCard(onTurnOn: () -> Unit) {
         Spacer(Modifier.width(AurioSpacing.md))
         Column(Modifier.weight(1f)) {
             Text("Usage access is off", style = AurioType.bodyStrong)
-            Text("Limits show as Unknown until it is on.", style = AurioType.caption, color = AurioColors.InkSubtle)
+            Text("Your limits are not being tracked yet.", style = AurioType.caption, color = AurioColors.InkSubtle)
         }
         Spacer(Modifier.width(AurioSpacing.sm))
         Box(
@@ -220,6 +277,26 @@ private fun AccessOffCard(onTurnOn: () -> Unit) {
             Box(Modifier.clip(CircleShape).background(AurioColors.Ink).padding(horizontal = 14.dp, vertical = 8.dp)) {
                 Text("Turn on", style = AurioType.label, color = Color.White)
             }
+        }
+    }
+}
+
+/** Access is back on, but it was off earlier today, so today is not scored. Nothing is lost. */
+@Composable
+private fun CountsTomorrowCard() {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.UnknownBg)
+            .padding(AurioSpacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StrokeIcon(AurioIcons.Info, contentDescription = null, tint = AurioColors.Unknown)
+        Spacer(Modifier.width(AurioSpacing.md))
+        Column(Modifier.weight(1f)) {
+            Text("Limits count again from tomorrow", style = AurioType.bodyStrong)
+            Text(
+                "Usage access was off earlier today, so today has no limit bonus or penalty. Focus still counts.",
+                style = AurioType.caption, color = AurioColors.InkSubtle,
+            )
         }
     }
 }
@@ -240,6 +317,7 @@ private fun LimitsCard(state: AurioState, onEditLimits: () -> Unit, onOpenApp: (
                 LimitRow(
                     if (state.usageAccess) app else app.copy(usedMinutes = null),
                     Modifier.clickable(role = Role.Button, onClickLabel = "Open ${app.label} details") { onOpenApp(app.packageName) },
+                    notCounted = state.notCounted,
                 )
                 if (i < state.limitedApps.lastIndex) RowDivider()
             }

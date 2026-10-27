@@ -39,6 +39,8 @@ import androidx.glance.unit.ColorProvider
 import app.aurio.MainActivity
 import app.aurio.data.AurioState
 import app.aurio.data.AurioStore
+import app.aurio.data.NotCountedReason
+import app.aurio.ui.components.NotCounted
 import app.aurio.domain.AppUsage
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.LimitStatus
@@ -66,10 +68,10 @@ private fun openApp(context: Context, destination: String? = null) = actionStart
         .apply { if (destination != null) putExtra(MainActivity.EXTRA_OPEN, destination) },
 )
 
-private fun limitText(app: AppUsage): String = when (val s = AuraScoring.limitStatus(app)) {
+private fun limitText(app: AppUsage, notCounted: NotCountedReason?): String = when (val s = AuraScoring.limitStatus(app)) {
     is LimitStatus.Under -> "${s.minutesLeft} min left"
     is LimitStatus.Over -> "${s.minutesOver} min over"
-    LimitStatus.Unknown -> "Unknown"
+    LimitStatus.Unknown -> NotCounted.pill(notCounted)
     LimitStatus.NotScored -> "Not scored"
 }
 
@@ -143,7 +145,7 @@ class LimitWidget : GlanceAppWidget() {
                             Text("Choose apps in Aurio", style = TextStyle(color = subtle, fontSize = 12.sp))
                         } else {
                             Text(closest.label, style = TextStyle(color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1)
-                            Text(limitText(closest), style = TextStyle(color = limitColor(closest), fontSize = 12.sp))
+                            Text(limitText(closest, s.notCounted), style = TextStyle(color = limitColor(closest), fontSize = 12.sp))
                         }
                     }
                     Box(
@@ -185,7 +187,7 @@ class LimitsWidget : GlanceAppWidget() {
                         limits.forEach { app ->
                             Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp)) {
                                 Text(app.label, style = TextStyle(color = ink, fontSize = 13.sp), maxLines = 1, modifier = GlanceModifier.defaultWeight())
-                                Text(limitText(app), style = TextStyle(color = limitColor(app), fontSize = 12.sp, fontWeight = FontWeight.Medium))
+                                Text(limitText(app, s.notCounted), style = TextStyle(color = limitColor(app), fontSize = 12.sp, fontWeight = FontWeight.Medium))
                             }
                         }
                     }

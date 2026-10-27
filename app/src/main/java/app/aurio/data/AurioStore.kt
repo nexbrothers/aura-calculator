@@ -57,6 +57,8 @@ data class AurioState(
     /** Current settings per package; they apply from tomorrow where they differ from [apps]. */
     val tracked: Map<String, AppTerms> = emptyMap(),
     val usageAccess: Boolean = false,
+    /** Why today's limits are not being counted, or null when they are. */
+    val notCounted: NotCountedReason? = null,
     val streakDays: Int = 0,
     val bestStreak: Int = 0,
     val running: FocusSessionEntity? = null,
@@ -119,6 +121,11 @@ object AurioStore {
                     apps = apps,
                     tracked = current,
                     usageAccess = day.access,
+                    notCounted = when {
+                        !day.access -> NotCountedReason.ACCESS_OFF
+                        day.accessWasOff -> NotCountedReason.OFF_EARLIER_TODAY
+                        else -> null
+                    },
                     streakDays = last?.streakAfter ?: 0,
                     bestStreak = history.maxOfOrNull { it.streakAfter } ?: 0,
                     running = day.running,
@@ -289,4 +296,15 @@ object AurioStore {
             settingsStore.clear()
         }
     }
+}
+
+/**
+ * Why today's limits show no time and earn no bonus or penalty (the product's "Unknown" state).
+ * Shown to users in plain words; see ui/components/NotCounted.kt.
+ */
+enum class NotCountedReason {
+    /** Usage access is off right now. */
+    ACCESS_OFF,
+    /** Access is on now but was off earlier today, so today stays uncounted (DayRules). */
+    OFF_EARLIER_TODAY,
 }
