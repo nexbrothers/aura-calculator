@@ -27,6 +27,8 @@ Plans (Claude Docs, read-only context):
   yesterday's final delta, total, a new level and a partial-day note. Low-importance channel, opens Insights.
 - Usage-access-off notice (`limits/AccessNotice.kt`): once per off spell when limits are set and Aurio is not on
   screen; checked by limit checks and the 6-hour settle job; cleared when access is back.
+- No backup and no device-to-device transfer: `allowBackup="false"` plus `res/xml/data_extraction_rules.xml`
+  (Android 12+) and `res/xml/backup_rules.xml` (8 to 11) exclude all data. A new phone starts Aurio fresh.
 - Developer tools > Notifications: "Send daily recap now" and "Run a limit check in 10 seconds" (leave the app).
 
 ## Caveats
