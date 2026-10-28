@@ -258,6 +258,29 @@ class AurioRepository(
     suspend fun saveLimitAlertsSent(date: LocalDate, sent: Set<Pair<String, LimitAlert>>) =
         db.meta().put(AppMetaEntity(LIMIT_ALERTS, LimitWatch.encodeSent(date, sent)))
 
+    suspend fun hasLimitedApps(): Boolean = db.trackedApps().getAll().any { it.category == AppCategory.LIMITED.name }
+
+    /** True while the "usage access is off" notice has been shown and access has not come back. */
+    suspend fun accessNoticeShown(): Boolean = db.meta().get(ACCESS_NOTICE) != null
+
+    suspend fun setAccessNoticeShown(shown: Boolean) =
+        if (shown) db.meta().put(AppMetaEntity(ACCESS_NOTICE, "1")) else db.meta().delete(ACCESS_NOTICE)
+
+    // ---- Daily recap --------------------------------------------------------------------
+
+    /** [date]'s settled row and the aura before it (0 before the first day), or null if not settled. */
+    suspend fun settledDay(date: LocalDate): Pair<DailyScoreEntity, Int>? {
+        val all = db.scores().allDaily()
+        val i = all.indexOfFirst { it.date == date.toString() }
+        if (i < 0) return null
+        return all[i] to (all.getOrNull(i - 1)?.totalAfter ?: 0)
+    }
+
+    /** The day the last recap reported on, so each day is recapped once. */
+    suspend fun recapSentFor(): LocalDate? = db.meta().get(RECAP_SENT)?.let(LocalDate::parse)
+
+    suspend fun markRecapSent(date: LocalDate) = db.meta().put(AppMetaEntity(RECAP_SENT, date.toString()))
+
     // ---- Level-ups ----------------------------------------------------------------------
 
     /** Level changes written by settlement, with the id up to which the user has seen them. */
@@ -359,6 +382,8 @@ class AurioRepository(
         private const val START_AT = "start_at"
         private const val LEVEL_SEEN = "level_seen_through"
         private const val LIMIT_ALERTS = "limit_alerts_sent"
+        private const val ACCESS_NOTICE = "access_notice_shown"
+        private const val RECAP_SENT = "recap_sent_for"
     }
 }
 

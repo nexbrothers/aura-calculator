@@ -26,7 +26,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.rememberCoroutineScope
+import app.aurio.AurioApplication
 import app.aurio.data.AurioStore
+import app.aurio.limits.LimitAlarm
+import app.aurio.recap.RecapSender
+import kotlinx.coroutines.launch
 import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
 import app.aurio.ui.components.SecondaryButton
@@ -40,6 +45,7 @@ import app.aurio.ui.theme.AurioType
 fun DebugScreen(onBack: () -> Unit, onPreviewLevelUp: () -> Unit = {}, onPreviewShareCard: () -> Unit = {}) {
     val context = LocalContext.current
     val state by AurioStore.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) } // forces the labels below to refresh
     fun change(block: () -> Unit) { block(); tick++; AurioStore.sync(context) }
 
@@ -85,6 +91,17 @@ fun DebugScreen(onBack: () -> Unit, onPreviewLevelUp: () -> Unit = {}, onPreview
             SecondaryButton("Finish running session now", {
                 val r = state.running
                 if (r != null) change { DebugTime.enabled = true; DebugTime.offsetMillis += (r.endsAt - SystemAurioClock.nowMillis()).coerceAtLeast(0) + 1000 }
+            }, container = AurioColors.SurfaceSunken)
+        }
+
+        Card("Notifications") {
+            // Sends the recap for the app's yesterday (move time forward a day first to settle one).
+            SecondaryButton("Send daily recap now", {
+                scope.launch { RecapSender.send(context.applicationContext as AurioApplication, force = true) }
+            }, container = AurioColors.SurfaceSunken)
+            // Leave Aurio after tapping: warnings and the usage-access notice are not posted while it is open.
+            SecondaryButton("Run a limit check in 10 seconds", {
+                LimitAlarm.schedule(context, System.currentTimeMillis() + 10_000)
             }, container = AurioColors.SurfaceSunken)
         }
 

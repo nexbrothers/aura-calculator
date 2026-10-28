@@ -62,5 +62,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_OPEN = "app.aurio.extra.OPEN"
         const val OPEN_FOCUS = "focus"
         const val OPEN_LIMITS = "limits"
+        const val OPEN_INSIGHTS = "insights"
     }
 }

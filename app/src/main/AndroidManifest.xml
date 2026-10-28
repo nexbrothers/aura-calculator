@@ -61,6 +61,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Daily recap: one inexact alarm each morning, booked again after each run and on restart. -->
+        <receiver
+            android:name=".recap.RecapReceiver"
+            android:exported="false" />
+
         <!-- Hands the level-up share card to the app the user picks; read access is per share only. -->
         <provider
             android:name="androidx.core.content.FileProvider"

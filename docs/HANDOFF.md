@@ -22,6 +22,12 @@ Plans (Claude Docs, read-only context):
 - Profile > Notifications: session complete and limit warnings switches, quiet hours (half-hour steps, equal
   times = off), a "Notifications are off" row when blocked, and "Precise timing" (Android 12+) opening the
   exact-alarm setting. System states are re-read whenever Profile resumes.
+- Daily recap (`recap/DailyRecapNotifier.kt`, wording and timing in `domain/DailyRecap.kt`): off by default; one
+  inexact alarm each morning when quiet hours end (8:00 with quiet hours off), settles first, then posts
+  yesterday's final delta, total, a new level and a partial-day note. Low-importance channel, opens Insights.
+- Usage-access-off notice (`limits/AccessNotice.kt`): once per off spell when limits are set and Aurio is not on
+  screen; checked by limit checks and the 6-hour settle job; cleared when access is back.
+- Developer tools > Notifications: "Send daily recap now" and "Run a limit check in 10 seconds" (leave the app).
 
 ## Caveats
 - Build verified locally on 2026-10-26: `assembleDebug` + 13 unit tests pass.

@@ -36,11 +36,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusAlarm
 import app.aurio.focus.FocusNotifications
+import app.aurio.limits.AccessNotice
 import app.aurio.limits.LimitAlarm
+import app.aurio.recap.RecapAlarm
+import app.aurio.recap.RecapNotifications
 import app.aurio.limits.LimitCheck
 import app.aurio.limits.LimitNotifications
 import app.aurio.widget.Widgets
@@ -310,7 +314,12 @@ object AurioStore {
     /** Turning warnings off stops the checks at once; turning them on starts watching again. */
     fun setLimitWarnings(on: Boolean) { scope.launch { settingsStore.setLimitWarnings(on); recheckLimits() } }
 
-    fun setQuietHours(startMinute: Int, endMinute: Int) { scope.launch { settingsStore.setQuietHours(startMinute, endMinute) } }
+    /** The recap goes out when quiet hours end, so a change re-books it. */
+    fun setQuietHours(startMinute: Int, endMinute: Int) {
+        scope.launch { settingsStore.setQuietHours(startMinute, endMinute); RecapAlarm.schedule(app!!) }
+    }
+
+    fun setDailyRecap(on: Boolean) { scope.launch { settingsStore.setDailyRecap(on); RecapAlarm.schedule(app!!) } }
 
     /** The notification permission is asked once, after the first completed session. */
     fun setNotificationPromptSeen() { scope.launch { settingsStore.setNotificationPromptSeen() } }
@@ -329,12 +338,19 @@ object AurioStore {
     fun deleteAllData() {
         FocusAlarm.cancel(app!!)
         FocusNotifications.clear(app!!)
-        LimitAlarm.cancel(app!!)
-        LimitNotifications.clear(app!!)
         ShareCard.clear(app!!)
         scope.launch {
-            repo.deleteEverything()
-            settingsStore.clear()
+            // Wipe under the background lock, then cancel and clear, so a limit check or recap that
+            // was already running cannot write a row, book an alarm or post after the wipe.
+            BackgroundWork.lock.withLock {
+                repo.deleteEverything()
+                settingsStore.clear()
+                LimitAlarm.cancel(app!!)
+                LimitNotifications.clear(app!!)
+                RecapAlarm.cancel(app!!)
+                RecapNotifications.clear(app!!)
+                AccessNotice.clear(app!!)
+            }
         }
     }
 }

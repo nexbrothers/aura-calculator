@@ -37,7 +37,6 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 
 ## Roadmap (not built yet)
 Splash, Plus paywall, focus foreground service.
-Notifications phase 3 (daily recap with its Profile toggle, usage-access-off notice).
 
 ## Working agreements for Claude
 - Use the `aurio-design-system` skill before any UI work and the `compose-screen` skill for new screens.

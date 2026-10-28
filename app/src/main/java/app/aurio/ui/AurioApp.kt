@@ -109,10 +109,11 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
     }
 
     // A widget's "Start focus" opens the Focus tab (which resumes a session already running);
-    // a limit warning opens Limits.
+    // a limit warning opens Limits; the daily recap opens Insights.
     LaunchedEffect(openRequest) {
         if (openRequest == MainActivity.OPEN_FOCUS) goTab(Tab.FOCUS.route)
         if (openRequest == MainActivity.OPEN_LIMITS) goTab(Tab.LIMITS.route)
+        if (openRequest == MainActivity.OPEN_INSIGHTS) goTab(Tab.INSIGHTS.route)
         if (openRequest != null) onOpenHandled()
     }
 

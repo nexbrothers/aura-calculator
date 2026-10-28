@@ -17,7 +17,12 @@ import app.aurio.AurioApplication
 import app.aurio.data.UsageAccess
 import app.aurio.domain.SettleSchedule
 import app.aurio.domain.SystemAurioClock
+import app.aurio.limits.AccessNotice
 import app.aurio.limits.LimitCheck
+import app.aurio.recap.RecapAlarm
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /** Freezes finished days even when the app was not opened. The app also catches up on launch. */
@@ -25,12 +30,9 @@ class SettleWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     override suspend fun doWork(): Result {
         val app = applicationContext as AurioApplication
         return try {
-            if (!UsageAccess.isGranted(applicationContext)) app.repository.markAccessOff(SystemAurioClock.today())
-            val startDay = app.repository.startDate()
-            val installedAt = app.repository.installedAt()
-            app.repository.settlePastDays { date ->
-                UsageAccess.minutesForDate(applicationContext, date, notBefore = if (date == startDay) installedAt else null)
-            }
+            val granted = UsageAccess.isGranted(applicationContext)
+            AccessNotice.update(app, granted)
+            settle(app)
             Result.success()
         } catch (e: Exception) {
             // Settlement is idempotent: a later run (or the next app open) picks up where this stopped.
@@ -42,6 +44,16 @@ class SettleWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     companion object {
         private const val NOW = "settle-now"
         private const val BACKUP = "settle-days"
+
+        /** Freezes every finished day not settled yet. Idempotent; the daily recap calls it too. */
+        suspend fun settle(app: AurioApplication) {
+            if (!UsageAccess.isGranted(app)) app.repository.markAccessOff(SystemAurioClock.today())
+            val startDay = app.repository.startDate()
+            val installedAt = app.repository.installedAt()
+            app.repository.settlePastDays { date ->
+                UsageAccess.minutesForDate(app, date, notBefore = if (date == startDay) installedAt else null)
+            }
+        }
 
         /**
          * Books settlement for just after the next local midnight, and a 6-hour backup in case the
@@ -92,10 +104,19 @@ class MidnightReceiver : BroadcastReceiver() {
             else -> return
         }
         MidnightAlarm.schedule(context)
-        // A new day (or a moved clock) resets which limit warnings are due; the boot case has its own receiver.
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
-            val done = goAsync()
-            LimitCheck.runAsync(context.applicationContext as AurioApplication) { done.finish() }
+        val app = context.applicationContext as AurioApplication
+        // A new day (or a moved clock) resets which limit warnings are due, and moves the recap time.
+        // Limit checks after a restart are booked by their own receiver.
+        val done = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                RecapAlarm.schedule(app)
+                if (intent.action != Intent.ACTION_BOOT_COMPLETED) LimitCheck.run(app)
+            } catch (e: Exception) {
+                Log.w("MidnightReceiver", "Rescheduling failed", e)
+            } finally {
+                done.finish()
+            }
         }
     }
 }

@@ -25,7 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
+import app.aurio.data.BackgroundWork
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 
@@ -35,15 +35,14 @@ import java.time.Instant
  * depends on any of this: a late or missing warning changes no aura.
  */
 object LimitCheck {
-    private val lock = Mutex()
-
     /**
      * Posts any due warnings and books the next check, or cancels it when there is nothing to
      * watch. [minutesToday] is today's usage when the caller has just read it; null reads it here.
      */
-    suspend fun run(app: AurioApplication, minutesToday: Map<String, Int>? = null) = lock.withLock {
+    suspend fun run(app: AurioApplication, minutesToday: Map<String, Int>? = null) = BackgroundWork.lock.withLock {
         val settings = app.settings.settings.first()
         val granted = UsageAccess.isGranted(app) || DebugTime.enabled
+        AccessNotice.update(app, granted)
         if (!settings.onboardingDone || !settings.limitWarnings || !granted || !LimitNotifications.canPost(app)) {
             LimitAlarm.cancel(app)
             return@withLock

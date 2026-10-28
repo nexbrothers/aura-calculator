@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.mutableIntStateOf
 import app.aurio.ui.components.ValueStepper
+import app.aurio.domain.DailyRecap
 import java.util.Calendar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -171,6 +172,11 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
             RowDivider()
             ToggleRow("Limit warnings", "When a limited app has 5 min left, and when its limit is reached", state.settings.limitWarnings) {
                 AurioStore.setLimitWarnings(it)
+            }
+            RowDivider()
+            val recapAt = clockText(context, DailyRecap.minuteOfDay(state.settings.quietStartMinute, state.settings.quietEndMinute))
+            ToggleRow("Daily recap", "Yesterday's aura, each morning after $recapAt", state.settings.dailyRecap) {
+                AurioStore.setDailyRecap(it)
             }
             RowDivider()
             NavRow(
