@@ -131,7 +131,7 @@ private fun UsageAccessStep(granted: Boolean, onOpen: () -> Unit) {
             }
             Pill(if (granted) "Usage access is on" else "Usage access is off", if (granted) PillTone.GAIN else PillTone.UNKNOWN)
             Text(
-                if (granted) "You're set." else "Find Aurio in the list and switch it on, then come back. You can skip this; limits will show as Unknown and never cost aura.",
+                if (granted) "You're set." else "Find Aurio in the list and switch it on, then come back. You can skip this. Limits stay uncounted and never cost aura until usage access is on.",
                 style = AurioType.caption, color = AurioColors.InkMuted,
             )
             Spacer(Modifier.weight(1f))

@@ -226,7 +226,7 @@ private fun RulesCard() {
     ) {
         Text("How limits score", style = AurioType.bodyStrong)
         RuleRow("+20", PillTone.GAIN, "Day ends under an app's limit")
-        RuleRow("−1", PillTone.LOSS, "Per minute over, up to −60 an app")
+        RuleRow("−1", PillTone.LOSS, "Per minute over a limit, up to −60 for each app")
         RuleRow("0", PillTone.NEUTRAL, "Neutral and essential apps")
         RuleRow("0", PillTone.UNKNOWN, "Not counted while usage access is off")
     }

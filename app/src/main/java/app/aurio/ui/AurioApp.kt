@@ -17,6 +17,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +54,8 @@ import app.aurio.ui.limits.LimitsScreen
 import app.aurio.ui.profile.ProfileScreen
 import app.aurio.ui.theme.AurioColors
 import app.aurio.ui.theme.AurioType
+import app.aurio.ui.theme.systemReduceMotion
+import app.aurio.ui.components.BackButton
 
 private enum class Tab(val route: String, val label: String, val path: String) {
     HOME("home", "Home", "M4 10l8-6 8 6v10h-5v-6H9v6H4z"),
@@ -122,7 +125,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                         selected = route == tab.route,
                         onClick = { goTab(tab.route) },
                         icon = { Icon(strokeIcon(tab.path), contentDescription = null, modifier = Modifier.size(22.dp)) },
-                        label = { Text(tab.label, style = AurioType.caption) },
+                        label = { Text(tab.label, style = AurioType.caption, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = AurioColors.Ink, selectedTextColor = AurioColors.Ink,
                             unselectedIconColor = AurioColors.InkSubtle, unselectedTextColor = AurioColors.InkSubtle,
@@ -143,7 +146,17 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                         onOpenApp = { nav.navigate("app/$it") },
                     )
                 }
-                composable(Tab.FOCUS.route) { FocusSetupScreen(onStarted = { nav.navigate("focus/run") }) }
+                composable(Tab.FOCUS.route) { entry ->
+                    val ended by entry.savedStateHandle.getStateFlow("endedEarly", false).collectAsStateWithLifecycle()
+                    FocusSetupScreen(
+                        endedEarly = ended,
+                        onStarted = {
+                            entry.savedStateHandle["endedEarly"] = false
+                            nav.navigate("focus/run")
+                        },
+                        onDismissEnded = { entry.savedStateHandle["endedEarly"] = false },
+                    )
+                }
                 composable(Tab.LIMITS.route) {
                     LimitsScreen(onManageApps = { nav.navigate("apps/edit") }, onOpenApp = { nav.navigate("app/$it") }, onTurnOnAccess = onOpenUsageSettings)
                 }
@@ -153,6 +166,8 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                 composable("apps/edit") {
                     val st by AurioStore.state.collectAsStateWithLifecycle()
                     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl)) {
+                        BackButton(onBack = { nav.popBackStack() })
+                        Spacer(Modifier.height(AurioSpacing.sm))
                         Text("Manage apps", style = AurioType.display)
                         Spacer(Modifier.height(8.dp))
                         Text("Limited apps are scored against a daily limit. Tap a chosen option again to stop tracking an app.", style = AurioType.body, color = AurioColors.InkMuted)
@@ -172,7 +187,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                 }
                 composable("sharecard/preview") { app.aurio.ui.levelup.ShareCardPreview(onBack = { nav.popBackStack() }) }
                 composable("levelup/preview") {
-                    LevelUpScreen(app.aurio.domain.AuraLevel.GLOW, 412, reduceMotion = false, onDone = { nav.popBackStack() }, canShare = false)
+                    LevelUpScreen(app.aurio.domain.AuraLevel.GLOW, 412, reduceMotion = systemReduceMotion(), onDone = { nav.popBackStack() }, canShare = false)
                 }
                 composable("levelup") {
                     val shown = remember { AurioStore.levelUp.value }
@@ -181,13 +196,16 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                         LaunchedEffect(Unit) { nav.popBackStack() }
                     } else {
                         LaunchedEffect(shown) { AurioStore.markLevelUpSeen(shown) }
-                        LevelUpScreen(shown.level, shown.score, st.settings.reduceMotion, onDone = { nav.popBackStack() })
+                        LevelUpScreen(shown.level, shown.score, st.settings.reduceMotion || systemReduceMotion(), onDone = { nav.popBackStack() })
                     }
                 }
                 composable("focus/run") {
                     FocusRunningScreen(
                         onComplete = { earned -> nav.navigate("focus/done/$earned") { popUpTo(Tab.FOCUS.route) } },
-                        onEndEarly = { nav.popBackStack() },
+                        onEndEarly = {
+                            nav.getBackStackEntry(Tab.FOCUS.route).savedStateHandle["endedEarly"] = true
+                            nav.popBackStack()
+                        },
                     )
                 }
                 composable("focus/done/{earned}", arguments = listOf(navArgument("earned") { type = NavType.IntType })) { e ->

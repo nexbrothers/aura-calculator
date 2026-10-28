@@ -71,6 +71,7 @@ import app.aurio.ui.theme.AurioRadius
 import app.aurio.ui.theme.AurioSpacing
 import app.aurio.ui.theme.AurioTheme
 import app.aurio.ui.theme.AurioType
+import app.aurio.ui.theme.systemReduceMotion
 import java.time.format.DateTimeFormatter
 
 /**
@@ -88,10 +89,15 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
     // Score micro-interaction: tick from the last shown value to the new one; brighten on gain.
     val shown = remember { Animatable(state.score.toFloat()) }
     var gainFlash by remember { mutableStateOf(false) }
-    LaunchedEffect(state.score) {
-        gainFlash = state.score > shown.value
-        shown.animateTo(state.score.toFloat(), tween(1100))
-        gainFlash = false
+    val stillMotion = state.settings.reduceMotion || systemReduceMotion()
+    LaunchedEffect(state.score, stillMotion) {
+        if (stillMotion) {
+            shown.snapTo(state.score.toFloat())
+        } else {
+            gainFlash = state.score > shown.value
+            shown.animateTo(state.score.toFloat(), tween(1100))
+            gainFlash = false
+        }
     }
     val brightness by animateFloatAsState(if (gainFlash) 1.12f else 1f, tween(600), label = "glow")
     val displayScore = shown.value.toInt()
@@ -204,12 +210,13 @@ private fun Greeting(state: AurioState, level: AuraLevel, onProfile: () -> Unit)
 private fun AuraCard(state: AurioState, score: Int, level: AuraLevel, brightness: Float, onLevelClick: () -> Unit, onStreakClick: () -> Unit) {
     val shape = RoundedCornerShape(AurioRadius.hero)
     val palette = AuraPalettes.of(level)
+    val still = state.settings.reduceMotion || systemReduceMotion()
     Box(
         Modifier.fillMaxWidth().height(312.dp)
             .shadow(AurioElevation.hero, shape, ambientColor = palette.c1, spotColor = palette.c1)
             .clip(shape),
     ) {
-        AuraField(palette, Modifier.fillMaxSize(), brightness = brightness, animate = !state.settings.reduceMotion)
+        AuraField(palette, Modifier.fillMaxSize(), brightness = brightness, animate = !still)
         Column(Modifier.fillMaxSize().padding(22.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(

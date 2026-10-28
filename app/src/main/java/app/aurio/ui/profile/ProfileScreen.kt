@@ -22,12 +22,12 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.data.AurioStore
 import app.aurio.ui.components.AuraField
 import app.aurio.ui.components.AurioCard
+import app.aurio.ui.components.AurioDialog
 import app.aurio.ui.components.AurioIcons
 import app.aurio.ui.components.StrokeIcon
 import app.aurio.ui.components.CardHeader
@@ -127,12 +128,12 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
             RowDivider()
             ToggleRow("Session complete", "A notification when a focus session ends", state.settings.focusReminders) { AurioStore.setFocusReminders(it) }
             RowDivider()
-            ToggleRow("Reduce motion", "Stills the moving aura", state.settings.reduceMotion) { AurioStore.setReduceMotion(it) }
+            ToggleRow("Reduce motion", "Stops the moving aura and celebrations", state.settings.reduceMotion) { AurioStore.setReduceMotion(it) }
         }
 
         AurioCard(padding = AurioSpacing.lg) {
             CardHeader("Your data")
-            NavRow("Export my data", "A copy of your scores and settings, to save or send", onClickLabel = "Export my data", onClick = {
+            NavRow("Export my data", "Scores, tracked apps, and focus sessions. You choose where it goes.", onClickLabel = "Export my data", onClick = {
                 scope.launch {
                     val json = AurioStore.exportJson()
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -160,21 +161,35 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
 
     if (editName) {
         var draft by remember { mutableStateOf(state.userName) }
-        AlertDialog(
-            onDismissRequest = { editName = false },
-            title = { Text("Your name") },
-            text = { TextField(draft, { draft = it.take(30) }, singleLine = true) },
-            confirmButton = { TextButton({ AurioStore.setName(draft); editName = false }) { Text("Save") } },
-            dismissButton = { TextButton({ editName = false }) { Text("Cancel") } },
+        AurioDialog(
+            title = "Your name",
+            body = "Only used on this phone.",
+            confirmLabel = "Save",
+            onConfirm = { AurioStore.setName(draft); editName = false },
+            dismissLabel = "Cancel",
+            onDismiss = { editName = false },
+            content = {
+                TextField(
+                    draft, { draft = it.take(30) }, singleLine = true,
+                    shape = RoundedCornerShape(AurioRadius.tile),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = AurioColors.SurfaceSunken, unfocusedContainerColor = AurioColors.SurfaceSunken,
+                        focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
         )
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete all data?") },
-            text = { Text("This erases your aura, history, apps and settings from this phone. It cannot be undone.") },
-            confirmButton = { TextButton({ confirmDelete = false; AurioStore.deleteAllData() }) { Text("Delete everything", color = AurioColors.LossText) } },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text("Keep my data") } },
+        AurioDialog(
+            title = "Delete all data?",
+            body = "This erases your aura, history, apps and settings from this phone. It cannot be undone.",
+            confirmLabel = "Delete everything",
+            onConfirm = { confirmDelete = false; AurioStore.deleteAllData() },
+            dismissLabel = "Keep my data",
+            onDismiss = { confirmDelete = false },
+            confirmContainer = AurioColors.Loss,
         )
     }
 }

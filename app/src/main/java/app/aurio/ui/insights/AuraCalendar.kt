@@ -163,7 +163,7 @@ internal fun dayDetail(date: LocalDate, day: DailyScoreEntity?, today: LocalDate
     val name = date.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
     return when {
         day != null -> "$name: ${signed(day.delta)}, aura ${day.totalAfter}, ${AuraLevel.of(day.totalAfter).label}" +
-            if (day.partial) ". Partial day: some usage was unknown." else ""
+            if (day.partial) ". Partial day: this day was not counted in full." else ""
         date == today -> "$name: today settles at midnight."
         date.isAfter(today) -> "$name: still to come."
         else -> "$name: no score. Aurio was not tracking yet, or the day has not settled."

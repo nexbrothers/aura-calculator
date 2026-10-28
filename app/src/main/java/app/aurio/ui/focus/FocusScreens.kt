@@ -85,13 +85,14 @@ import app.aurio.ui.theme.AurioColors
 import app.aurio.ui.theme.AurioRadius
 import app.aurio.ui.theme.AurioSpacing
 import app.aurio.ui.theme.AurioType
+import app.aurio.ui.theme.systemReduceMotion
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
-fun FocusSetupScreen(onStarted: () -> Unit) {
+fun FocusSetupScreen(onStarted: () -> Unit, endedEarly: Boolean = false, onDismissEnded: () -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val presets = listOf(25, 50, 90)
@@ -101,6 +102,7 @@ fun FocusSetupScreen(onStarted: () -> Unit) {
     val chosen = if (custom) customMinutes else minutes
     val sessionMinutes = state.sessions.map { it.minutes }
     val capLeft = AuraScoring.MAX_FOCUS_PER_DAY - state.daily.focusAura
+    val endsTomorrow = sessionEndsOnAnotherDay(chosen)
 
     // A session already running (for example after reopening the app) is resumed, not duplicated.
     LaunchedEffect(state.running?.id) { if (state.running != null) onStarted() }
@@ -114,13 +116,23 @@ fun FocusSetupScreen(onStarted: () -> Unit) {
             Text("Focus session", style = AurioType.display, modifier = Modifier.semantics { heading() })
             Spacer(Modifier.height(AurioSpacing.sm))
             Text("Put the phone down. Aura is added when the session completes.", style = AurioType.body, color = AurioColors.InkMuted)
+            if (endedEarly) {
+                Spacer(Modifier.height(AurioSpacing.lg))
+                AurioCard {
+                    Text("Session ended", style = AurioType.bodyStrong)
+                    Spacer(Modifier.height(AurioSpacing.xs))
+                    Text("Ending early never costs aura.", style = AurioType.body, color = AurioColors.InkMuted)
+                    Spacer(Modifier.height(AurioSpacing.md))
+                    SecondaryButton("Got it", onDismissEnded, container = AurioColors.SurfaceSunken)
+                }
+            }
             Spacer(Modifier.height(AurioSpacing.xxl))
             Column(verticalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {
                 presets.forEach { m ->
-                    DurationCard(m, AuraScoring.potentialFocus(sessionMinutes, m), selected = !custom && m == minutes) { custom = false; minutes = m }
+                    DurationCard(m, focusPreview(sessionMinutes, m), selected = !custom && m == minutes) { custom = false; minutes = m }
                 }
                 CustomCard(
-                    customMinutes, AuraScoring.potentialFocus(sessionMinutes, customMinutes), selected = custom,
+                    customMinutes, focusPreview(sessionMinutes, customMinutes), selected = custom,
                     onSelect = { custom = true },
                     onDec = { custom = true; customMinutes = (customMinutes - 5).coerceAtLeast(5) },
                     onInc = { custom = true; customMinutes = (customMinutes + 5).coerceAtMost(180) },
@@ -128,7 +140,11 @@ fun FocusSetupScreen(onStarted: () -> Unit) {
             }
             Spacer(Modifier.height(AurioSpacing.md))
             Text(
-                if (capLeft > 0) "$capLeft of 100 focus aura left today" else "Daily focus cap reached. Sessions still count as focus time.",
+                when {
+                    endsTomorrow -> "This session ends tomorrow, so its aura counts tomorrow."
+                    capLeft > 0 -> "$capLeft of 100 focus aura left today"
+                    else -> "Daily focus cap reached. Sessions still count as focus time."
+                },
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
         }
@@ -221,7 +237,9 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
     }
 
     val total = running.plannedMinutes * 60
-    val earn = AuraScoring.potentialFocus(state.sessions.map { it.minutes }, running.plannedMinutes)
+    val still = state.settings.reduceMotion || systemReduceMotion()
+    val earn = focusPreview(state.sessions.map { it.minutes }, running.plannedMinutes, running.endsAt)
+    val endsTomorrow = sessionEndsOnAnotherDay(0, running.endsAt)
     var remaining by remember { mutableIntStateOf(secondsLeft(running.endsAt)) }
 
     // The end time is saved, so the countdown is always read from the clock. If the app is
@@ -240,7 +258,7 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
     }
 
     Box(Modifier.fillMaxSize()) {
-        AuraField(AuraPalettes.of(state.level), Modifier.fillMaxSize(), animate = !state.settings.reduceMotion)
+        AuraField(AuraPalettes.of(state.level), Modifier.fillMaxSize(), animate = !still)
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -264,7 +282,7 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
                         "%02d:%02d".format(mm, ss), style = AurioType.scoreLarge,
                         modifier = Modifier.semantics { contentDescription = "$mm minutes $ss seconds left" },
                     )
-                    Text("left to earn +$earn", style = AurioType.body)
+                    Text(if (endsTomorrow) "left to earn +$earn tomorrow" else "left to earn +$earn", style = AurioType.body)
                 }
             }
             Spacer(Modifier.height(AurioSpacing.xxxl))
@@ -328,9 +346,21 @@ private fun NotificationPromptCardPreview() {
 
 private fun secondsLeft(endsAt: Long): Int = ((endsAt - app.aurio.domain.SystemAurioClock.nowMillis() + 999) / 1000).toInt().coerceAtLeast(0)
 
+/** Aura this session would add on the day it ends. A session that crosses midnight uses tomorrow's cap. */
+private fun focusPreview(todayMinutes: List<Int>, plannedMinutes: Int, endsAt: Long = app.aurio.domain.SystemAurioClock.nowMillis() + plannedMinutes * 60_000L): Int {
+    val base = if (sessionEndsOnAnotherDay(0, endsAt)) emptyList() else todayMinutes
+    return AuraScoring.potentialFocus(base, plannedMinutes)
+}
+
+private fun sessionEndsOnAnotherDay(plannedMinutes: Int, endsAt: Long = app.aurio.domain.SystemAurioClock.nowMillis() + plannedMinutes * 60_000L): Boolean {
+    val endDay = java.time.Instant.ofEpochMilli(endsAt).atZone(app.aurio.domain.SystemAurioClock.zone()).toLocalDate()
+    return endDay != app.aurio.domain.SystemAurioClock.today()
+}
+
 @Composable
 fun SessionCompleteScreen(earned: Int, onHome: () -> Unit, onAgain: () -> Unit) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
+    val still = state.settings.reduceMotion || systemReduceMotion()
     Column(
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -338,8 +368,8 @@ fun SessionCompleteScreen(earned: Int, onHome: () -> Unit, onAgain: () -> Unit) 
         Spacer(Modifier.weight(0.4f))
         Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
             val palette = AuraPalettes.of(state.level)
-            if (!state.settings.reduceMotion) ParticleBurst(listOf(palette.c1, palette.c2, palette.c3, palette.c4), Modifier.fillMaxSize())
-            AuraField(palette, Modifier.size(240.dp).clip(CircleShape), animate = !state.settings.reduceMotion)
+            if (!still) ParticleBurst(listOf(palette.c1, palette.c2, palette.c3, palette.c4), Modifier.fillMaxSize())
+            AuraField(palette, Modifier.size(240.dp).clip(CircleShape), animate = !still)
             Text("+$earned", style = AurioType.scoreHero, textAlign = TextAlign.Center)
         }
         Text("Session complete.", style = AurioType.display, modifier = Modifier.semantics { heading() })

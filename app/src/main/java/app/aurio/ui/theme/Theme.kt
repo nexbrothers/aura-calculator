@@ -1,9 +1,11 @@
 package app.aurio.ui.theme
 
+import android.provider.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -82,4 +84,12 @@ fun AurioTheme(content: @Composable () -> Unit) {
         shapes = AurioShapes,
         content = content,
     )
+}
+
+/** True when Android's "remove animations" is on, so motion follows the system as well as the in-app switch. */
+@Composable
+fun systemReduceMotion(): Boolean {
+    val context = LocalContext.current
+    val scale = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    return scale == 0f
 }

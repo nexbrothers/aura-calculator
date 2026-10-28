@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,12 +49,19 @@ import app.aurio.ui.theme.AurioType
 // ---------- Buttons ----------
 
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, leading: (@Composable RowScope.() -> Unit)? = null) {
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    container: Color = AurioColors.Ink,
+    contentColor: Color = Color.White,
+    leading: (@Composable RowScope.() -> Unit)? = null,
+) {
     Button(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(AurioSpacing.buttonHeight),
+        modifier = modifier.fillMaxWidth().heightIn(min = AurioSpacing.buttonHeight),
         shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = AurioColors.Ink, contentColor = Color.White),
+        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = contentColor),
     ) {
         if (leading != null) { leading(); Spacer(Modifier.width(8.dp)) }
         Text(text, style = AurioType.button)
@@ -64,7 +72,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, container: Color = AurioColors.Surface) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(AurioSpacing.buttonHeight),
+        modifier = modifier.fillMaxWidth().heightIn(min = AurioSpacing.buttonHeight),
         shape = CircleShape,
         colors = ButtonDefaults.outlinedButtonColors(containerColor = container, contentColor = AurioColors.Ink),
     ) { Text(text, style = AurioType.button) }

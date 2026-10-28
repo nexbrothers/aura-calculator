@@ -1,6 +1,7 @@
 package app.aurio.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -13,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +51,48 @@ fun AurioCard(
         verticalArrangement = verticalArrangement,
         content = content,
     )
+}
+
+/** A 48dp back control. Same on every screen that is not a tab. */
+@Composable
+fun BackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.heightIn(min = AurioSpacing.touchMin)
+            .clickable(role = Role.Button, onClick = onBack),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StrokeIcon(AurioIcons.ChevronLeft, contentDescription = null)
+        Text("Back", style = AurioType.label)
+    }
+}
+
+/**
+ * The one dialog: paper card, a plain title, and the same pills as the rest of the app.
+ * [confirmContainer] is loss red only for a destructive confirm.
+ */
+@Composable
+fun AurioDialog(
+    title: String,
+    body: String?,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    dismissLabel: String,
+    onDismiss: () -> Unit,
+    confirmContainer: Color = AurioColors.Ink,
+    content: @Composable (() -> Unit)? = null,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().background(AurioColors.Surface, RoundedCornerShape(AurioRadius.card)).padding(AurioSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(AurioSpacing.md),
+        ) {
+            Text(title, style = AurioType.title)
+            if (body != null) Text(body, style = AurioType.body, color = AurioColors.InkMuted)
+            content?.invoke()
+            PrimaryButton(confirmLabel, onConfirm, container = confirmContainer)
+            SecondaryButton(dismissLabel, onDismiss, container = AurioColors.SurfaceSunken)
+        }
+    }
 }
 
 /** A card's heading with an optional text action on the right ("Edit"). */
@@ -86,6 +131,7 @@ object AurioIcons {
     const val Flame = "M12 3c1 4 5 6 5 11a5 5 0 0 1-10 0c0-3 2-4 2-7 2 1 3 3 3 5"
     const val Timer = "M12 21a8 8 0 1 0 0-16a8 8 0 0 0 0 16zM12 9v4l2 2M10 2h4"
     const val ChevronDown = "M6 9l6 6 6-6"
+    const val ChevronLeft = "M15 6l-6 6 6 6"
     const val ChevronRight = "M9 6l6 6-6 6"
     const val Info = "M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18zM12 11v5M12 8h.01"
     const val ArrowUp = "M12 19V5M5 12l7-7 7 7"

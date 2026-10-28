@@ -16,12 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -44,7 +39,10 @@ import app.aurio.domain.DayBar
 import app.aurio.domain.History
 import app.aurio.domain.LimitStatus
 import app.aurio.domain.SystemAurioClock
+import app.aurio.ui.components.AurioCard
+import app.aurio.ui.components.BackButton
 import app.aurio.ui.components.AppTile
+import app.aurio.ui.components.PillTabs
 import app.aurio.ui.components.LimitRow
 import app.aurio.ui.components.NotCounted
 import app.aurio.data.NotCountedReason
@@ -66,7 +64,6 @@ import java.util.Locale
  * One app: today against its limit, the last 7 days, the limit and category settings, and what
  * the app did to the aura. Works for an app removed today too (it is still scored today).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
@@ -84,9 +81,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
         Modifier.fillMaxSize().background(AurioColors.Paper).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState())
             .padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.lg),
     ) {
-        TextButton(onClick = onBack, modifier = Modifier.padding(start = 0.dp)) {
-            Text("Back", style = AurioType.label, color = AurioColors.Ink)
-        }
+        BackButton(onBack)
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = AurioSpacing.sm)) {
             AppTile(label, size = 56.dp, packageName = packageName)
             Spacer(Modifier.width(AurioSpacing.md))
@@ -97,14 +92,14 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
         }
 
         if (todayUsage != null) {
-            Card(Modifier.padding(top = AurioSpacing.xl)) {
+            AurioCard(Modifier.padding(top = AurioSpacing.xl)) {
                 Text("Today", style = AurioType.caption, color = AurioColors.InkSubtle)
                 LimitRow(todayUsage, notCounted = state.notCounted, measured = state.measuredMinutes[packageName])
                 note?.let { Text(it, style = AurioType.caption, color = AurioColors.InkSubtle) }
             }
         }
 
-        Card(Modifier.padding(top = AurioSpacing.md)) {
+        AurioCard(Modifier.padding(top = AurioSpacing.md)) {
             Text("Last 7 days", style = AurioType.bodyStrong)
             Spacer(Modifier.height(AurioSpacing.md))
             UsageBars(week)
@@ -119,7 +114,7 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
 
         if (saved != null) {
             Text("Settings", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = AurioSpacing.sm))
-            Card {
+            AurioCard {
                 val savedLimit = saved.limitMinutes
                 if (saved.category == AppCategory.LIMITED && savedLimit != null) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -133,16 +128,14 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
                 Text("Category", style = AurioType.bodyStrong)
                 Spacer(Modifier.height(AurioSpacing.sm))
                 val cats = listOf(AppCategory.LIMITED to "Limited", AppCategory.NEUTRAL to "Neutral", AppCategory.ESSENTIAL to "Essential")
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    cats.forEachIndexed { i, (cat, text) ->
-                        SegmentedButton(
-                            selected = saved.category == cat,
-                            onClick = { if (saved.category != cat) AurioStore.setCategory(packageName, cat) },
-                            shape = SegmentedButtonDefaults.itemShape(i, cats.size),
-                            colors = SegmentedButtonDefaults.colors(activeContainerColor = AurioColors.Ink, activeContentColor = AurioColors.Surface),
-                        ) { Text(text, style = AurioType.label) }
-                    }
-                }
+                PillTabs(
+                    cats.map { it.second },
+                    selected = cats.indexOfFirst { it.first == saved.category }.coerceAtLeast(0),
+                    onSelect = { i ->
+                        val cat = cats[i].first
+                        if (saved.category != cat) AurioStore.setCategory(packageName, cat)
+                    },
+                )
                 Spacer(Modifier.height(AurioSpacing.sm))
                 Text(
                     "Neutral and essential apps never change aura. A higher limit or a new category starts tomorrow; a lower limit starts now.",
@@ -165,15 +158,8 @@ private fun categoryText(category: AppCategory?): String = when (category) {
 }
 
 @Composable
-private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(18.dp),
-    ) { content() }
-}
-
-@Composable
 private fun ImpactCard(impact: AppImpact, today: LimitStatus?, notCounted: NotCountedReason? = null) {
-    Card {
+    AurioCard {
         Text("Last 7 days, settled", style = AurioType.caption, color = AurioColors.InkSubtle)
         Text(signed(impact.total), style = AurioType.scoreLarge)
         Text(
@@ -276,7 +262,7 @@ private fun UsageBarsPreview() {
     }
     AurioTheme {
         Column(Modifier.background(AurioColors.Paper).padding(AurioSpacing.xl)) {
-            Card { UsageBars(week) }
+            AurioCard { UsageBars(week) }
             Spacer(Modifier.height(AurioSpacing.md))
             ImpactCard(AppImpact(total = 23, daysUnder = 2, daysOver = 1), LimitStatus.Under(12, 20))
         }

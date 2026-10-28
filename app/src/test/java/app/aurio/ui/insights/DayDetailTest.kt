@@ -18,7 +18,7 @@ class DayDetailTest {
     @Test fun partialDayIsCalledOut() {
         val day = DailyScoreEntity("2026-10-20", 0, 100, partial = true, streakAfter = 0, settledAt = 0)
         assertEquals(
-            "Tue 20 Oct: 0, aura 100, Static. Partial day: some usage was unknown.",
+            "Tue 20 Oct: 0, aura 100, Static. Partial day: this day was not counted in full.",
             dayDetail(LocalDate.parse("2026-10-20"), day, today, locale),
         )
     }
