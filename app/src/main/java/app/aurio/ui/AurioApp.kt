@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 import app.aurio.ui.theme.AurioSpacing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -111,6 +113,8 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
 
     Scaffold(
         containerColor = AurioColors.Paper,
+        // Screens place their own insets, so full-screen pages (the focus timer) reach the bottom edge.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBar) NavigationBar(containerColor = AurioColors.Surface) {
                 Tab.entries.forEach { tab ->
@@ -148,7 +152,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                 }
                 composable("apps/edit") {
                     val st by AurioStore.state.collectAsStateWithLifecycle()
-                    Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl)) {
+                    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl)) {
                         Text("Manage apps", style = AurioType.display)
                         Spacer(Modifier.height(8.dp))
                         Text("Limited apps are scored against a daily limit. Tap a chosen option again to stop tracking an app.", style = AurioType.body, color = AurioColors.InkMuted)

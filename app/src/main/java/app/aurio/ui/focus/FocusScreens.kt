@@ -12,6 +12,19 @@ import android.os.Build
 import android.content.pm.PackageManager
 import android.Manifest
 import androidx.compose.foundation.Canvas
+import kotlin.math.sin
+import kotlin.math.cos
+import app.aurio.ui.theme.AurioElevation
+import app.aurio.ui.components.StrokeIcon
+import app.aurio.ui.components.AurioIcons
+import app.aurio.ui.components.AurioCard
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.widthIn
@@ -92,65 +105,93 @@ fun FocusSetupScreen(onStarted: () -> Unit) {
     // A session already running (for example after reopening the app) is resumed, not duplicated.
     LaunchedEffect(state.running?.id) { if (state.running != null) onStarted() }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl)) {
-        Text("Focus session", style = AurioType.display)
-        Spacer(Modifier.height(8.dp))
-        Text("Put the phone down. Aura is added when the session completes.", style = AurioType.body, color = AurioColors.InkMuted)
-        Spacer(Modifier.height(AurioSpacing.xxl))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            presets.forEach { m ->
-                val selected = !custom && m == minutes
-                val earn = AuraScoring.potentialFocus(sessionMinutes, m)
-                Row(
-                    Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(AurioRadius.card))
-                        .background(if (selected) AurioColors.Ink else AurioColors.Surface)
-                        .selectable(selected, role = Role.RadioButton) { custom = false; minutes = m }
-                        .padding(horizontal = AurioSpacing.xl),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    val fg = if (selected) Color.White else AurioColors.Ink
-                    Text("$m min", style = AurioType.display, color = fg)
-                    Text(
-                        if (earn <= 0) "Cap reached" else "+$earn aura",
-                        style = AurioType.label, color = if (selected) Color.White else AurioColors.GainText,
-                        modifier = Modifier.clip(CircleShape).background(if (selected) Color.White.copy(alpha = 0.16f) else AurioColors.GainBg)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
+    // The choices scroll; Start stays pinned at the bottom, so nothing is cut off on small phones.
+    Column(Modifier.fillMaxSize().background(AurioColors.Paper).statusBarsPadding()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState())
+                .padding(start = AurioSpacing.xl, end = AurioSpacing.xl, top = AurioSpacing.md, bottom = AurioSpacing.lg),
+        ) {
+            Text("Focus session", style = AurioType.display, modifier = Modifier.semantics { heading() })
+            Spacer(Modifier.height(AurioSpacing.sm))
+            Text("Put the phone down. Aura is added when the session completes.", style = AurioType.body, color = AurioColors.InkMuted)
+            Spacer(Modifier.height(AurioSpacing.xxl))
+            Column(verticalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {
+                presets.forEach { m ->
+                    DurationCard(m, AuraScoring.potentialFocus(sessionMinutes, m), selected = !custom && m == minutes) { custom = false; minutes = m }
                 }
+                CustomCard(
+                    customMinutes, AuraScoring.potentialFocus(sessionMinutes, customMinutes), selected = custom,
+                    onSelect = { custom = true },
+                    onDec = { custom = true; customMinutes = (customMinutes - 5).coerceAtLeast(5) },
+                    onInc = { custom = true; customMinutes = (customMinutes + 5).coerceAtMost(180) },
+                )
             }
-            // Custom length: any 5 to 180 minutes, in steps of 5.
-            val earnCustom = AuraScoring.potentialFocus(sessionMinutes, customMinutes)
-            Row(
-                Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(AurioRadius.card))
-                    .background(if (custom) AurioColors.Ink else AurioColors.Surface)
-                    .selectable(custom, role = Role.RadioButton) { custom = true }
-                    .padding(horizontal = AurioSpacing.lg),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                val fg = if (custom) Color.White else AurioColors.Ink
-                Column {
-                    Text("Custom", style = AurioType.bodyStrong, color = fg)
-                    Text(
-                        if (earnCustom <= 0) "Cap reached" else "+$earnCustom aura",
-                        style = AurioType.caption, color = if (custom) Color.White.copy(alpha = 0.8f) else AurioColors.GainText,
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    CustomStep("−", "Shorter by 5 minutes", custom) { custom = true; customMinutes = (customMinutes - 5).coerceAtLeast(5) }
-                    Text("$customMinutes min", style = AurioType.title, color = fg, modifier = Modifier.widthIn(min = 76.dp), textAlign = TextAlign.Center)
-                    CustomStep("+", "Longer by 5 minutes", custom) { custom = true; customMinutes = (customMinutes + 5).coerceAtMost(180) }
-                }
-            }
+            Spacer(Modifier.height(AurioSpacing.md))
+            Text(
+                if (capLeft > 0) "$capLeft of 100 focus aura left today" else "Daily focus cap reached. Sessions still count as focus time.",
+                style = AurioType.caption, color = AurioColors.InkSubtle,
+            )
         }
-        Spacer(Modifier.height(AurioSpacing.md))
-        Text(
-            if (capLeft > 0) "$capLeft of 100 focus aura left today" else "Daily focus cap reached. Sessions still count as focus time.",
-            style = AurioType.caption.copy(fontSize = 13.sp), color = AurioColors.InkSubtle,
+        PrimaryButton(
+            "Start $chosen min session", { scope.launch { AurioStore.startFocus(chosen) } },
+            Modifier.padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.lg),
+            leading = { StrokeIcon(AurioIcons.Timer, contentDescription = null, tint = Color.White, size = 18.dp) },
         )
-        Spacer(Modifier.weight(1f))
-        PrimaryButton("Start $chosen min session", { scope.launch { AurioStore.startFocus(chosen) } })
+    }
+}
+
+private fun earnText(earn: Int) = if (earn <= 0) "Cap reached" else "+$earn aura"
+
+/** One duration to choose: a big number, its aura, lifted in ink when chosen. */
+@Composable
+private fun DurationCard(minutes: Int, earn: Int, selected: Boolean, onSelect: () -> Unit) {
+    val shape = RoundedCornerShape(AurioRadius.card)
+    Row(
+        Modifier.fillMaxWidth().height(84.dp)
+            .shadow(if (selected) 0.dp else AurioElevation.card, shape, ambientColor = AurioColors.Shadow.copy(alpha = 0.04f), spotColor = AurioColors.Shadow.copy(alpha = 0.10f))
+            .clip(shape).background(if (selected) AurioColors.Ink else AurioColors.Surface)
+            .selectable(selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(horizontal = AurioSpacing.xl),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val fg = if (selected) Color.White else AurioColors.Ink
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom) {
+            Text("$minutes", style = AurioType.display, color = fg)
+            Text(" min", style = AurioType.bodyStrong, color = fg, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        EarnPill(earn, selected)
+    }
+}
+
+@Composable
+private fun EarnPill(earn: Int, onDark: Boolean) {
+    Text(
+        earnText(earn), style = AurioType.label, color = if (onDark) Color.White else AurioColors.GainText,
+        modifier = Modifier.clip(CircleShape).background(if (onDark) Color.White.copy(alpha = 0.16f) else AurioColors.GainBg)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
+
+/** Any length from 5 to 180 minutes, in steps of 5. */
+@Composable
+private fun CustomCard(minutes: Int, earn: Int, selected: Boolean, onSelect: () -> Unit, onDec: () -> Unit, onInc: () -> Unit) {
+    val shape = RoundedCornerShape(AurioRadius.card)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 84.dp)
+            .shadow(if (selected) 0.dp else AurioElevation.card, shape, ambientColor = AurioColors.Shadow.copy(alpha = 0.04f), spotColor = AurioColors.Shadow.copy(alpha = 0.10f))
+            .clip(shape).background(if (selected) AurioColors.Ink else AurioColors.Surface)
+            .selectable(selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(start = AurioSpacing.xl, end = AurioSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val fg = if (selected) Color.White else AurioColors.Ink
+        Column(Modifier.weight(1f)) {
+            Text("Custom", style = AurioType.bodyStrong, color = fg)
+            Text(earnText(earn), style = AurioType.caption, color = if (selected) Color.White.copy(alpha = 0.8f) else AurioColors.GainText)
+        }
+        CustomStep("−", "Shorter by 5 minutes", selected, onDec)
+        Text("$minutes min", style = AurioType.title, color = fg, modifier = Modifier.widthIn(min = 76.dp), textAlign = TextAlign.Center)
+        CustomStep("+", "Longer by 5 minutes", selected, onInc)
     }
 }
 
@@ -205,7 +246,8 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("${running.plannedMinutes} minute focus", style = AurioType.bodyStrong)
-            Spacer(Modifier.height(64.dp))
+            // Equal space above and below centres the ring on any screen height.
+            Spacer(Modifier.weight(1f))
             Box(Modifier.size(272.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxSize()) {
                     val stroke = 10.dp.toPx()
@@ -225,14 +267,14 @@ fun FocusRunningScreen(onComplete: (earned: Int) -> Unit, onEndEarly: () -> Unit
                     Text("left to earn +$earn", style = AurioType.body)
                 }
             }
-            Spacer(Modifier.height(40.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(AurioSpacing.xxxl))
+            Row(horizontalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {
                 Pill("Counts when complete", PillTone.ON_AURA)
                 Pill("No ads", PillTone.ON_AURA)
             }
             Spacer(Modifier.weight(1f))
-            Text("Ending early never costs aura", style = AurioType.caption.copy(fontSize = 13.sp), color = AurioColors.InkMuted)
-            Spacer(Modifier.height(14.dp))
+            Text("Ending early never costs aura", style = AurioType.caption, color = AurioColors.InkMuted)
+            Spacer(Modifier.height(AurioSpacing.md))
             SecondaryButton("End session", {
                 finished = true
                 scope.launch {
@@ -263,10 +305,7 @@ private fun NotificationPrompt(visible: Boolean) {
 
 @Composable
 private fun NotificationPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().padding(top = AurioSpacing.md).clip(RoundedCornerShape(AurioRadius.card))
-            .background(AurioColors.Surface).padding(18.dp),
-    ) {
+    AurioCard(Modifier.padding(top = AurioSpacing.md), padding = 18.dp) {
         Text("Know when a session ends", style = AurioType.bodyStrong)
         Spacer(Modifier.height(AurioSpacing.xs))
         Text("Aurio can tell you when your timer is done, even with the app closed.", style = AurioType.caption, color = AurioColors.InkSubtle)
@@ -296,27 +335,60 @@ fun SessionCompleteScreen(earned: Int, onHome: () -> Unit, onAgain: () -> Unit) 
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = AurioSpacing.xl, vertical = AurioSpacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Spacer(Modifier.weight(0.4f))
         Box(Modifier.size(300.dp), contentAlignment = Alignment.Center) {
-            // TODO(motion): add the aura particle burst from the prototype.
-            AuraField(AuraPalettes.of(state.level), Modifier.size(240.dp).clip(CircleShape))
+            val palette = AuraPalettes.of(state.level)
+            if (!state.settings.reduceMotion) ParticleBurst(listOf(palette.c1, palette.c2, palette.c3, palette.c4), Modifier.fillMaxSize())
+            AuraField(palette, Modifier.size(240.dp).clip(CircleShape), animate = !state.settings.reduceMotion)
             Text("+$earned", style = AurioType.scoreHero, textAlign = TextAlign.Center)
         }
-        Text("Session complete.", style = AurioType.display.copy(fontSize = 32.sp))
-        Spacer(Modifier.height(8.dp))
+        Text("Session complete.", style = AurioType.display, modifier = Modifier.semantics { heading() })
+        Spacer(Modifier.height(AurioSpacing.sm))
         Text("Your aura is now ${state.score}", style = AurioType.body, color = AurioColors.InkMuted)
-        Spacer(Modifier.height(26.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(18.dp)) {
+        Spacer(Modifier.height(AurioSpacing.xxl))
+        AurioCard(padding = 18.dp) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Focus aura today", style = AurioType.label.copy(fontSize = 14.sp))
-                Text("${state.daily.focusAura} of 100", style = AurioType.label.copy(fontSize = 14.sp))
+                Text("Focus aura today", style = AurioType.label)
+                Text("${state.daily.focusAura} of 100", style = AurioType.label)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(AurioSpacing.sm))
             ProgressBar(state.daily.focusAura / 100f, color = AurioColors.Gain, track = AurioColors.GainBg, height = 8.dp)
+            Spacer(Modifier.height(AurioSpacing.sm))
+            val left = AuraScoring.MAX_FOCUS_PER_DAY - state.daily.focusAura
+            Text(
+                if (left > 0) "$left more focus aura available today" else "Today's focus aura is full. Sessions still count as focus time.",
+                style = AurioType.caption, color = AurioColors.InkSubtle,
+            )
         }
         NotificationPrompt(visible = state.loaded && !state.settings.notificationPromptSeen && state.settings.focusReminders)
         Spacer(Modifier.weight(1f))
         PrimaryButton("Back to home", onHome)
         Spacer(Modifier.height(8.dp))
         SecondaryButton("Start another", onAgain)
+    }
+}
+
+/**
+ * The celebration on session complete: dots in the aura's colours burst out from the orb once and
+ * fade. Callers skip it when reduce motion is on.
+ */
+@Composable
+private fun ParticleBurst(colors: List<Color>, modifier: Modifier = Modifier) {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { progress.animateTo(1f, tween(durationMillis = 1100, easing = FastOutSlowInEasing)) }
+    val dots = remember {
+        val r = kotlin.random.Random(11)
+        List(18) { i -> Triple(i * (360f / 18) + r.nextFloat() * 12f, 0.75f + r.nextFloat() * 0.5f, i % 4) }
+    }
+    Canvas(modifier) {
+        val p = progress.value
+        val start = 0.30f * size.minDimension
+        val travel = 0.22f * size.minDimension
+        dots.forEach { (angle, reach, colorIndex) ->
+            val rad = Math.toRadians(angle.toDouble())
+            val distance = start + travel * reach * p
+            val center = Offset(size.width / 2 + (cos(rad) * distance).toFloat(), size.height / 2 + (sin(rad) * distance).toFloat())
+            drawCircle(colors[colorIndex].copy(alpha = (1f - p).coerceIn(0f, 1f)), radius = (7.dp.toPx() * (1f - 0.6f * p)), center = center)
+        }
     }
 }
