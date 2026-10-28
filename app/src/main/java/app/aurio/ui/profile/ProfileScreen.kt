@@ -1,7 +1,18 @@
 package app.aurio.ui.profile
 
+import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import android.text.format.DateFormat
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.mutableIntStateOf
+import app.aurio.ui.components.ValueStepper
+import java.util.Calendar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +89,18 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
     var confirmDelete by remember { mutableStateOf(false) }
     val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
+    var editQuiet by remember { mutableStateOf(false) }
+
+    // Notification and exact-alarm permissions change in Android settings, so re-read them on return.
+    var resumes by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        resumes++
+        onPauseOrDispose { }
+    }
+    val notificationsOn = remember(resumes) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+    val exactOn = remember(resumes) {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    }
 
     Column(
         Modifier.fillMaxSize().background(AurioColors.Paper).statusBarsPadding()
@@ -126,9 +149,48 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
             )
             Spacer(Modifier.height(AurioSpacing.sm))
             RowDivider()
-            ToggleRow("Session complete", "A notification when a focus session ends", state.settings.focusReminders) { AurioStore.setFocusReminders(it) }
-            RowDivider()
             ToggleRow("Reduce motion", "Stops the moving aura and celebrations", state.settings.reduceMotion) { AurioStore.setReduceMotion(it) }
+        }
+
+        AurioCard(padding = AurioSpacing.lg) {
+            CardHeader("Notifications")
+            if (!notificationsOn) {
+                NavRow(
+                    "Notifications are off", "Nothing below can reach you until you turn them on in Android settings",
+                    trailing = { Pill("Off", PillTone.UNKNOWN) },
+                    onClickLabel = "Open notification settings",
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    },
+                )
+                RowDivider()
+            }
+            ToggleRow("Session complete", "When a focus session ends", state.settings.focusReminders) { AurioStore.setFocusReminders(it) }
+            RowDivider()
+            ToggleRow("Limit warnings", "When a limited app has 5 min left, and when its limit is reached", state.settings.limitWarnings) {
+                AurioStore.setLimitWarnings(it)
+            }
+            RowDivider()
+            NavRow(
+                "Quiet hours", quietHoursText(context, state.settings.quietStartMinute, state.settings.quietEndMinute),
+                onClickLabel = "Change quiet hours", onClick = { editQuiet = true },
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                RowDivider()
+                NavRow(
+                    "Precise timing",
+                    if (exactOn) "Alerts arrive on the minute" else "Alerts may arrive a few minutes late",
+                    trailing = { Pill(if (exactOn) "On" else "Off", if (exactOn) PillTone.GAIN else PillTone.UNKNOWN) },
+                    onClickLabel = "Change precise timing in Settings",
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")),
+                        )
+                    },
+                )
+            }
         }
 
         AurioCard(padding = AurioSpacing.lg) {
@@ -178,6 +240,24 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            },
+        )
+    }
+    if (editQuiet) {
+        var start by remember { mutableIntStateOf(state.settings.quietStartMinute) }
+        var end by remember { mutableIntStateOf(state.settings.quietEndMinute) }
+        AurioDialog(
+            title = "Quiet hours",
+            body = "Limit warnings arrive without sound between these times. Set both to the same time to turn quiet hours off.",
+            confirmLabel = "Save",
+            onConfirm = { AurioStore.setQuietHours(start, end); editQuiet = false },
+            dismissLabel = "Cancel",
+            onDismiss = { editQuiet = false },
+            content = {
+                Column {
+                    QuietTimeRow("Starts", clockText(context, start), "quiet hours start", { start = stepMinute(start, -1) }, { start = stepMinute(start, 1) })
+                    QuietTimeRow("Ends", clockText(context, end), "quiet hours end", { end = stepMinute(end, -1) }, { end = stepMinute(end, 1) })
+                }
             },
         )
     }
@@ -245,6 +325,29 @@ private fun ToggleRow(title: String, subtitle: String, checked: Boolean, onChang
         )
     }
 }
+
+@Composable
+private fun QuietTimeRow(label: String, time: String, what: String, onDec: () -> Unit, onInc: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = AurioType.bodyStrong, modifier = Modifier.weight(1f))
+        ValueStepper(time, what, onDec, onInc)
+    }
+}
+
+/** Quiet hours move in half-hour steps and wrap around midnight. */
+private fun stepMinute(minute: Int, steps: Int): Int = (minute + steps * 30).mod(24 * 60)
+
+/** A minute of the day in the phone's own 12- or 24-hour format. */
+private fun clockText(context: Context, minuteOfDay: Int): String {
+    val at = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, minuteOfDay / 60)
+        set(Calendar.MINUTE, minuteOfDay % 60)
+    }
+    return DateFormat.getTimeFormat(context).format(at.time)
+}
+
+private fun quietHoursText(context: Context, start: Int, end: Int): String =
+    if (start == end) "Off" else "Silent from ${clockText(context, start)} to ${clockText(context, end)}"
 
 @Composable
 private fun SeesCard(title: String, body: String, bg: Color, titleColor: Color, modifier: Modifier) {

@@ -56,11 +56,16 @@ fun PillTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
 
 /** A daily-limit stepper: soft round − and + around the value, each a 48dp target. */
 @Composable
-fun LimitStepper(value: Int, appLabel: String, onDec: () -> Unit, onInc: () -> Unit, modifier: Modifier = Modifier) {
+fun LimitStepper(value: Int, appLabel: String, onDec: () -> Unit, onInc: () -> Unit, modifier: Modifier = Modifier) =
+    ValueStepper("$value min", "$appLabel limit", onDec, onInc, modifier)
+
+/** − value + with 48dp targets. [what] names the value for TalkBack ("Decrease quiet hours start"). */
+@Composable
+fun ValueStepper(text: String, what: String, onDec: () -> Unit, onInc: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        StepButton("−", "Decrease $appLabel limit", onDec)
-        Text("$value min", style = AurioType.title, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 76.dp))
-        StepButton("+", "Increase $appLabel limit", onInc)
+        StepButton("−", "Decrease $what", onDec)
+        Text(text, style = AurioType.title, textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 76.dp))
+        StepButton("+", "Increase $what", onInc)
     }
 }
 

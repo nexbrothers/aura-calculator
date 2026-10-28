@@ -307,6 +307,11 @@ object AurioStore {
 
     fun setFocusReminders(on: Boolean) { scope.launch { settingsStore.setFocusReminders(on) } }
 
+    /** Turning warnings off stops the checks at once; turning them on starts watching again. */
+    fun setLimitWarnings(on: Boolean) { scope.launch { settingsStore.setLimitWarnings(on); recheckLimits() } }
+
+    fun setQuietHours(startMinute: Int, endMinute: Int) { scope.launch { settingsStore.setQuietHours(startMinute, endMinute) } }
+
     /** The notification permission is asked once, after the first completed session. */
     fun setNotificationPromptSeen() { scope.launch { settingsStore.setNotificationPromptSeen() } }
 

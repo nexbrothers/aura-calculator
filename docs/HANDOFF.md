@@ -19,6 +19,9 @@ Plans (Claude Docs, read-only context):
   each check books the next alarm at the soonest moment a threshold could be crossed (usage grows at most one
   minute per minute). Exact when exact alarms are allowed, otherwise Android may run it minutes late. Re-checked
   on sync, limit edits, midnight, boot. Permission asked once on Limits. Checked on the emulator with fake usage.
+- Profile > Notifications: session complete and limit warnings switches, quiet hours (half-hour steps, equal
+  times = off), a "Notifications are off" row when blocked, and "Precise timing" (Android 12+) opening the
+  exact-alarm setting. System states are re-read whenever Profile resumes.
 
 ## Caveats
 - Build verified locally on 2026-10-26: `assembleDebug` + 13 unit tests pass.
@@ -32,8 +35,7 @@ Plans (Claude Docs, read-only context):
 - DB tests are in `src/androidTest` (run on a device). Scoring/settlement tests are in `src/test`.
 
 ## Known gaps / next
-1. Focus follow-ups: no in-app link to Android 14+ exact-alarm settings (notification can be minutes late);
-   reopening after the alarm completed a session lands on Focus, not the complete screen; "left to earn" on the
+1. Focus follow-ups: reopening after the alarm completed a session lands on Focus, not the complete screen; "left to earn" on the
    timer uses today even when the session will end tomorrow; zones with DST at midnight are untested.
 2. Usage-access edge cases: access off is only noticed while the app or the 6-hour worker runs, so a short
    gap between runs goes unseen; Developer tools cannot simulate access off; DST/time-zone days are untested.
