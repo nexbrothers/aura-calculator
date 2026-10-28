@@ -61,5 +61,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN = "app.aurio.extra.OPEN"
         const val OPEN_FOCUS = "focus"
+        const val OPEN_LIMITS = "limits"
     }
 }

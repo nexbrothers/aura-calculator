@@ -52,6 +52,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Limit warnings: each check books the next one; a restart clears alarms, so it re-checks. -->
+        <receiver
+            android:name=".limits.LimitCheckReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Hands the level-up share card to the app the user picks; read access is per share only. -->
         <provider
             android:name="androidx.core.content.FileProvider"

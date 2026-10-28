@@ -7,7 +7,10 @@ import app.aurio.domain.AurioClock
 import app.aurio.domain.DayRecord
 import app.aurio.domain.DayRules
 import app.aurio.domain.FocusSession
+import app.aurio.domain.LimitAlert
+import app.aurio.domain.LimitWatch
 import app.aurio.domain.LineKind
+import app.aurio.domain.WatchedApp
 import app.aurio.domain.Settlement
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
@@ -234,6 +237,27 @@ class AurioRepository(
 
     private fun accessOffKey(date: LocalDate) = "access_off:$date"
 
+    // ---- Limit warnings -----------------------------------------------------------------
+
+    /**
+     * Limited apps as scored on [date], by the terms Home shows (DayRules), with [minutes] used.
+     * Empty when the day is not counted because access was off earlier: no limit can cost aura then.
+     */
+    suspend fun watchedApps(date: LocalDate, minutes: Map<String, Int>): List<WatchedApp> {
+        if (db.meta().get(accessOffKey(date)) != null && DayRules.accessOffCounts(date, startDate())) return emptyList()
+        val recorded = db.usageDays().forDate(date.toString()).mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
+        val current = db.trackedApps().getAll().associate { it.packageName to it.terms() }
+        return DayRules.appsForDay(recorded, current) { minutes[it] ?: 0 }
+            .filter { it.category == AppCategory.LIMITED && it.limitMinutes > 0 }
+            .map { WatchedApp(it.packageName, it.label, it.limitMinutes, it.usedMinutes ?: 0) }
+    }
+
+    suspend fun limitAlertsSent(date: LocalDate): Set<Pair<String, LimitAlert>> =
+        LimitWatch.decodeSent(db.meta().get(LIMIT_ALERTS), date)
+
+    suspend fun saveLimitAlertsSent(date: LocalDate, sent: Set<Pair<String, LimitAlert>>) =
+        db.meta().put(AppMetaEntity(LIMIT_ALERTS, LimitWatch.encodeSent(date, sent)))
+
     // ---- Level-ups ----------------------------------------------------------------------
 
     /** Level changes written by settlement, with the id up to which the user has seen them. */
@@ -334,6 +358,7 @@ class AurioRepository(
         private const val START_DATE = "start_date"
         private const val START_AT = "start_at"
         private const val LEVEL_SEEN = "level_seen_through"
+        private const val LIMIT_ALERTS = "limit_alerts_sent"
     }
 }
 

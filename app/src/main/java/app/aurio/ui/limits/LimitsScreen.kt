@@ -1,5 +1,10 @@
 package app.aurio.ui.limits
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +23,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
+import app.aurio.ui.theme.AurioTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -84,6 +94,10 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}, onT
         }
         PillTabs(categories.map { it.second }, tab, onSelect = { tab = it })
         if (category == AppCategory.LIMITED) state.notCounted?.let { NotCountedNotice(it, onTurnOnAccess) }
+        LimitWarningPrompt(
+            visible = category == AppCategory.LIMITED && apps.isNotEmpty() && state.usageAccess &&
+                state.settings.limitWarnings && !state.settings.limitPromptSeen,
+        )
 
         when {
             apps.isEmpty() -> EmptyCard(categories[tab].second, onManageApps)
@@ -98,6 +112,49 @@ fun LimitsScreen(onManageApps: () -> Unit, onOpenApp: (String) -> Unit = {}, onT
         }
         RulesCard()
     }
+}
+
+/**
+ * Asked once, the first time Limits shows limited apps, when the reason is obvious. Android 13+
+ * only; older versions allow notifications by default. Answering either way hides it for good.
+ */
+@Composable
+private fun LimitWarningPrompt(visible: Boolean) {
+    val context = LocalContext.current
+    val needed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { AurioStore.setLimitPromptSeen() }
+    if (!visible || !needed) return
+    LimitWarningPromptCard(
+        onTurnOn = { ask.launch(Manifest.permission.POST_NOTIFICATIONS) },
+        onNotNow = { AurioStore.setLimitPromptSeen() },
+    )
+}
+
+@Composable
+private fun LimitWarningPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit) {
+    AurioCard {
+        Text("Know when a limit is close", style = AurioType.bodyStrong)
+        Spacer(Modifier.height(AurioSpacing.xs))
+        Text(
+            "Aurio can tell you when a limited app has 5 minutes left today, and when its limit is reached. Worked out on this phone.",
+            style = AurioType.caption, color = AurioColors.InkSubtle,
+        )
+        Row(Modifier.fillMaxWidth().padding(top = AurioSpacing.sm), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onNotNow, modifier = Modifier.heightIn(min = AurioSpacing.touchMin)) {
+                Text("Not now", style = AurioType.label, color = AurioColors.InkMuted)
+            }
+            TextButton(onClick = onTurnOn, modifier = Modifier.heightIn(min = AurioSpacing.touchMin)) {
+                Text("Turn on notifications", style = AurioType.label, color = AurioColors.Ink)
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun LimitWarningPromptCardPreview() {
+    AurioTheme { LimitWarningPromptCard(onTurnOn = {}, onNotNow = {}) }
 }
 
 @Composable

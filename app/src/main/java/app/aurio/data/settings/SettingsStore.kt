@@ -26,6 +26,8 @@ data class Settings(
     val cloudBackup: Boolean = false,
     /** True once the user has answered (or dismissed) the notification prompt. */
     val notificationPromptSeen: Boolean = false,
+    /** True once the user has answered (or dismissed) the limit-warnings prompt on Limits. */
+    val limitPromptSeen: Boolean = false,
 ) {
     val onboardingDone get() = onboardingStep >= 5
 }
@@ -44,6 +46,7 @@ class SettingsStore(private val context: Context) {
         val focusMinutes = intPreferencesKey("default_focus_minutes")
         val cloud = booleanPreferencesKey("cloud_backup")
         val notificationPrompt = booleanPreferencesKey("notification_prompt_seen")
+        val limitPrompt = booleanPreferencesKey("limit_prompt_seen")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
@@ -61,6 +64,7 @@ class SettingsStore(private val context: Context) {
             defaultFocusMinutes = p[K.focusMinutes] ?: d.defaultFocusMinutes,
             cloudBackup = p[K.cloud] ?: d.cloudBackup,
             notificationPromptSeen = p[K.notificationPrompt] ?: d.notificationPromptSeen,
+            limitPromptSeen = p[K.limitPrompt] ?: d.limitPromptSeen,
         )
     }
 
@@ -76,5 +80,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setAmbientSound(v: Boolean) = context.dataStore.edit { it[K.ambient] = v }
     suspend fun setDefaultFocusMinutes(m: Int) = context.dataStore.edit { it[K.focusMinutes] = m.coerceIn(5, 90) }
     suspend fun setNotificationPromptSeen() = context.dataStore.edit { it[K.notificationPrompt] = true }
+    suspend fun setLimitPromptSeen() = context.dataStore.edit { it[K.limitPrompt] = true }
     suspend fun clear() = context.dataStore.edit { it.clear() }
 }

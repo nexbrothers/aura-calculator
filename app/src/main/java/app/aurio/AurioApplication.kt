@@ -7,6 +7,7 @@ import app.aurio.data.db.AurioDatabase
 import app.aurio.data.settings.SettingsStore
 import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusNotifications
+import app.aurio.limits.LimitNotifications
 import app.aurio.work.SettleWorker
 
 /** Simple manual wiring; a DI library is not worth it for an app this size. */
@@ -19,6 +20,7 @@ class AurioApplication : Application() {
         super.onCreate()
         AurioStore.init(this)
         FocusNotifications.createChannel(this)
+        LimitNotifications.createChannel(this)
         SettleWorker.schedule(this)
     }
 }

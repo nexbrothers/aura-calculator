@@ -36,8 +36,8 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 - Respect reduced motion: pass `animate = false` to `AuraField` when animations are disabled.
 
 ## Roadmap (not built yet)
-Splash, Plus paywall,
-Limit-warning notifications, focus foreground service.
+Splash, Plus paywall, focus foreground service.
+Notifications phase 2 (Profile: warning and recap toggles, quiet hours, exact-alarm link) and phase 3 (daily recap, usage-access-off notice).
 
 ## Working agreements for Claude
 - Use the `aurio-design-system` skill before any UI work and the `compose-screen` skill for new screens.

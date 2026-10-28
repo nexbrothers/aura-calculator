@@ -14,12 +14,19 @@ Plans (Claude Docs, read-only context):
   entries, daily_score, streak, level events. Pure scoring rules live in `domain/AuraScoring.kt`.
 - Insights from real history, Profile (name, default length, reduce motion, export JSON, delete all data).
 - Debug-only Developer tools (Profile > Developer tools): time travel (`DebugTime`), fake usage, finish session.
+- Limit warnings (`limits/LimitWarnings.kt`, rules in `domain/LimitWatch.kt`): "5 min left" and "limit reached",
+  once per app per day, silent in quiet hours, lock screen shows only "A limit is close". No foreground service:
+  each check books the next alarm at the soonest moment a threshold could be crossed (usage grows at most one
+  minute per minute). Exact when exact alarms are allowed, otherwise Android may run it minutes late. Re-checked
+  on sync, limit edits, midnight, boot. Permission asked once on Limits. Checked on the emulator with fake usage.
 
 ## Caveats
 - Build verified locally on 2026-10-26: `assembleDebug` + 13 unit tests pass.
 - JDK: Gradle 8.11 cannot run on JDK 25 (the default Java and both Android Studio JBRs here are 25).
   Use JDK 21: `JAVA_HOME=C:\Users\AmanSharma\.jdks\jbr-21.0.11`, and in Android Studio set
   Settings > Build Tools > Gradle > Gradle JDK to jbr-21.
+- If Gradle fails with "Unable to establish loopback connection" even on JDK 21, set
+  `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=<a folder inside the project, e.g. build\udstmp>` for that command.
 - Always run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest` after changes.
 - Android Studio sync/Run needs a successful build to deploy; check the Build tab.
 - DB tests are in `src/androidTest` (run on a device). Scoring/settlement tests are in `src/test`.

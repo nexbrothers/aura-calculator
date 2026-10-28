@@ -17,6 +17,7 @@ import app.aurio.AurioApplication
 import app.aurio.data.UsageAccess
 import app.aurio.domain.SettleSchedule
 import app.aurio.domain.SystemAurioClock
+import app.aurio.limits.LimitCheck
 import java.util.concurrent.TimeUnit
 
 /** Freezes finished days even when the app was not opened. The app also catches up on launch. */
@@ -91,5 +92,10 @@ class MidnightReceiver : BroadcastReceiver() {
             else -> return
         }
         MidnightAlarm.schedule(context)
+        // A new day (or a moved clock) resets which limit warnings are due; the boot case has its own receiver.
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
+            val done = goAsync()
+            LimitCheck.runAsync(context.applicationContext as AurioApplication) { done.finish() }
+        }
     }
 }

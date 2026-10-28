@@ -40,6 +40,9 @@ import app.aurio.domain.DebugTime
 import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusAlarm
 import app.aurio.focus.FocusNotifications
+import app.aurio.limits.LimitAlarm
+import app.aurio.limits.LimitCheck
+import app.aurio.limits.LimitNotifications
 import app.aurio.widget.Widgets
 import app.aurio.ui.levelup.ShareCard
 import java.time.LocalDate
@@ -223,6 +226,9 @@ object AurioStore {
         if (granted) {
             val minutes = if (DebugTime.enabled) DebugTime.usageByDate[day] ?: emptyMap() else UsageAccess.minutesSoFar(context, day, notBefore = r.measureFrom(day))
             r.recordUsage(day, r.scoredPackages(day).associateWith { minutes[it] ?: 0 })
+            LimitCheck.run(app!!, minutes)
+        } else {
+            LimitCheck.run(app!!)
         }
     }
 
@@ -240,14 +246,24 @@ object AurioStore {
 
     // ---- Apps and limits -----------------------------------------------------------------
 
-    fun saveApps(chosen: Map<String, Pair<String, AppCategory>>) { scope.launch { repo.replaceApps(chosen) } }
+    // Each edit re-checks limit warnings at once, since a new limit moves the next threshold.
 
-    fun setLimit(packageName: String, minutes: Int) { scope.launch { repo.setLimit(packageName, minutes) } }
+    fun saveApps(chosen: Map<String, Pair<String, AppCategory>>) { scope.launch { repo.replaceApps(chosen); recheckLimits() } }
+
+    fun setLimit(packageName: String, minutes: Int) { scope.launch { repo.setLimit(packageName, minutes); recheckLimits() } }
 
     /** Moves an app to another category. Like any loosening edit, it applies from tomorrow (DayRules). */
     fun setCategory(packageName: String, category: AppCategory) {
         val saved = state.value.tracked[packageName] ?: return
-        scope.launch { repo.saveApp(packageName, saved.label, category, saved.limitMinutes) }
+        scope.launch { repo.saveApp(packageName, saved.label, category, saved.limitMinutes); recheckLimits() }
+    }
+
+    private suspend fun recheckLimits() {
+        try {
+            LimitCheck.run(app!!)
+        } catch (e: Exception) {
+            Log.w("AurioStore", "Limit check failed", e)
+        }
     }
 
     /** The last 7 days of one app, today included (today's bar comes from the live state). */
@@ -294,6 +310,9 @@ object AurioStore {
     /** The notification permission is asked once, after the first completed session. */
     fun setNotificationPromptSeen() { scope.launch { settingsStore.setNotificationPromptSeen() } }
 
+    /** The limit-warnings prompt is asked once; a yes starts watching limits straight away. */
+    fun setLimitPromptSeen() { scope.launch { settingsStore.setLimitPromptSeen(); recheckLimits() } }
+
     // ---- Settings ------------------------------------------------------------------------
 
     fun setName(name: String) { scope.launch { settingsStore.setName(name) } }
@@ -305,6 +324,8 @@ object AurioStore {
     fun deleteAllData() {
         FocusAlarm.cancel(app!!)
         FocusNotifications.clear(app!!)
+        LimitAlarm.cancel(app!!)
+        LimitNotifications.clear(app!!)
         ShareCard.clear(app!!)
         scope.launch {
             repo.deleteEverything()
