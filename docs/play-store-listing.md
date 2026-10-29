@@ -1,6 +1,6 @@
 # Waura: Google Play listing
 
-Name: **Waura** (W + aura, said "WOW-ra"). Package ID stays `app.aurio`.
+Name: **Waura** (W + aura, said "WOW-ra"). Play package ID: `com.nexbrothers.waura`.
 
 ## App name (30 characters max)
 

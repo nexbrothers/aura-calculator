@@ -1,6 +1,6 @@
 # Aurio handoff (read this first in a new Claude Code session)
 
-Public name: **Waura** (since 2026-10-29). Everything users see says Waura; the code, package ID `app.aurio`
+Public name: **Waura** (since 2026-10-29). Everything users see says Waura. Play package ID: `com.nexbrothers.waura` (applicationId); the code namespace `app.aurio`
 and repo keep the Aurio name. Store listing text: `docs/play-store-listing.md`. The launcher icon still shows "a".
 
 Plans (Claude Docs, read-only context):

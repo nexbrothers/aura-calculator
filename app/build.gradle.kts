@@ -16,7 +16,8 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.aurio"
+        // The Play listing's package name (Waura). The code namespace stays app.aurio.
+        applicationId = "com.nexbrothers.waura"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
