@@ -10,3 +10,7 @@
 .cxx
 .kotlin/
 .claude/settings.local.json
+# Release signing: the key and its passwords never go in git.
+keystore.properties
+*.jks
+*.keystore

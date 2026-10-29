@@ -39,6 +39,10 @@ Plans (Claude Docs, read-only context):
 - If Gradle fails with "Unable to establish loopback connection" even on JDK 21, set
   `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=<a folder inside the project, e.g. build\udstmp>` for that command.
 - Always run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest` after changes.
+- Release signing: `gradlew.bat :app:assembleRelease` signs with the upload key in
+  `C:\Users\AmanSharma\.aurio-signing\aurio-upload.jks` via `keystore.properties` at the repo root (both outside git;
+  a copy of the properties sits next to the key). Without that file, release builds are unsigned. Back the key up
+  off this PC; with Play App Signing it is the upload key and can be reset through Play if lost.
 - Android Studio sync/Run needs a successful build to deploy; check the Build tab.
 - DB tests are in `src/androidTest` (run on a device). Scoring/settlement tests are in `src/test`.
 
