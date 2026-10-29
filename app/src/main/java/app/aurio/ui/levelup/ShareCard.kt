@@ -41,7 +41,7 @@ object ShareCard {
         text(canvas, level.label, left, 1110f, 190f, bricolage, 800, ink, tracking = -0.04f)
         text(canvas, "$score", left - 6f, 1400f, 300f, bricolage, 800, ink, tracking = -0.02f)
         text(canvas, "aura", left, 1490f, 56f, onest, 500, ink)
-        text(canvas, "Scored privately on my phone by Aurio.", left, 1560f, 40f, onest, 500, ink)
+        text(canvas, "Scored privately on my phone by Waura.", left, 1560f, 40f, onest, 500, ink)
         return bitmap
     }
 

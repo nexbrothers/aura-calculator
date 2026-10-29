@@ -347,7 +347,7 @@ class AurioRepository(
 
     suspend fun exportJson(): String {
         val root = JSONObject()
-        root.put("app", "Aurio")
+        root.put("app", "Waura")
         root.put("exportedAt", Instant.ofEpochMilli(clock.nowMillis()).toString())
         root.put("trackedApps", JSONArray().also { a ->
             db.trackedApps().getAll().forEach {

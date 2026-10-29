@@ -137,7 +137,7 @@ private fun LimitWarningPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit) {
         Text("Know when a limit is close", style = AurioType.bodyStrong)
         Spacer(Modifier.height(AurioSpacing.xs))
         Text(
-            "Aurio can tell you when a limited app has 5 minutes left today, and when its limit is reached. Worked out on this phone.",
+            "Waura can tell you when a limited app has 5 minutes left today, and when its limit is reached. Worked out on this phone.",
             style = AurioType.caption, color = AurioColors.InkSubtle,
         )
         Row(Modifier.fillMaxWidth().padding(top = AurioSpacing.sm), horizontalArrangement = Arrangement.End) {

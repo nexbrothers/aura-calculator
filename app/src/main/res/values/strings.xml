@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Aurio</string>
+    <string name="app_name">Waura</string>
     <string name="widget_aura_label">Aura</string>
     <string name="widget_aura_description">Your aura score and level</string>
     <string name="widget_limit_label">Closest limit</string>

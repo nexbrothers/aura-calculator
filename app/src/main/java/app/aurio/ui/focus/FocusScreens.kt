@@ -326,7 +326,7 @@ private fun NotificationPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit) {
     AurioCard(Modifier.padding(top = AurioSpacing.md), padding = 18.dp) {
         Text("Know when a session ends", style = AurioType.bodyStrong)
         Spacer(Modifier.height(AurioSpacing.xs))
-        Text("Aurio can tell you when your timer is done, even with the app closed.", style = AurioType.caption, color = AurioColors.InkSubtle)
+        Text("Waura can tell you when your timer is done, even with the app closed.", style = AurioType.caption, color = AurioColors.InkSubtle)
         Row(Modifier.fillMaxWidth().padding(top = AurioSpacing.sm), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onNotNow, modifier = Modifier.heightIn(min = AurioSpacing.touchMin)) {
                 Text("Not now", style = AurioType.label, color = AurioColors.InkMuted)

@@ -120,18 +120,18 @@ private fun Rule(amount: String, tone: PillTone, title: String, body: String) {
 
 @Composable
 private fun UsageAccessStep(granted: Boolean, onOpen: () -> Unit) {
-    StepFrame(2, "Let Aurio see time, not content", "Android calls this usage access. It reports how long each app was open.") { m ->
+    StepFrame(2, "Let Waura see time, not content", "Android calls this usage access. It reports how long each app was open.") { m ->
         Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(AurioRadius.card)).background(AurioColors.Surface).padding(AurioSpacing.lg)) {
-                Text("Aurio sees", style = AurioType.bodyStrong, color = AurioColors.GainText)
+                Text("Waura sees", style = AurioType.bodyStrong, color = AurioColors.GainText)
                 Text("Which app is open, and for how long.", style = AurioType.body)
                 Spacer(Modifier.height(AurioSpacing.md))
-                Text("Aurio never sees", style = AurioType.bodyStrong)
+                Text("Waura never sees", style = AurioType.bodyStrong)
                 Text("Messages, photos, or what you watch and post. It has no internet permission, so nothing can leave this phone.", style = AurioType.body)
             }
             Pill(if (granted) "Usage access is on" else "Usage access is off", if (granted) PillTone.GAIN else PillTone.UNKNOWN)
             Text(
-                if (granted) "You're set." else "Find Aurio in the list and switch it on, then come back. You can skip this. Limits stay uncounted and never cost aura until usage access is on.",
+                if (granted) "You're set." else "Find Waura in the list and switch it on, then come back. You can skip this. Limits stay uncounted and never cost aura until usage access is on.",
                 style = AurioType.caption, color = AurioColors.InkMuted,
             )
             Spacer(Modifier.weight(1f))
@@ -175,7 +175,7 @@ private fun NameStep() {
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(AurioSpacing.md))
-            Text("You start at 0 aura. Your first day is marked partial while Aurio learns your habits.", style = AurioType.caption, color = AurioColors.InkSubtle)
+            Text("You start at 0 aura. Your first day is marked partial while Waura learns your habits.", style = AurioType.caption, color = AurioColors.InkSubtle)
             Spacer(Modifier.weight(1f))
             PrimaryButton("Finish", { AurioStore.finishOnboarding(name) })
         }

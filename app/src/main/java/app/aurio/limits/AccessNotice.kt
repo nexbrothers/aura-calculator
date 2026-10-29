@@ -22,7 +22,7 @@ object AccessNotice {
 
     fun createChannel(context: Context) {
         val channel = NotificationChannel(CHANNEL, "App status", NotificationManager.IMPORTANCE_DEFAULT)
-            .apply { description = "When Aurio can no longer count your limits" }
+            .apply { description = "When Waura can no longer count your limits" }
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
@@ -51,7 +51,7 @@ object AccessNotice {
         // Like every Aurio notification, the lock screen shows only a generic line.
         val public = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_aurio)
-            .setContentTitle("Aurio needs attention")
+            .setContentTitle("Waura needs attention")
             .build()
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_aurio)

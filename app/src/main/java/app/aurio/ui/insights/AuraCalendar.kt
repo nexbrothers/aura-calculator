@@ -166,7 +166,7 @@ internal fun dayDetail(date: LocalDate, day: DailyScoreEntity?, today: LocalDate
             if (day.partial) ". Partial day: this day was not counted in full." else ""
         date == today -> "$name: today settles at midnight."
         date.isAfter(today) -> "$name: still to come."
-        else -> "$name: no score. Aurio was not tracking yet, or the day has not settled."
+        else -> "$name: no score. Waura was not tracking yet, or the day has not settled."
     }
 }
 

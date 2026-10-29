@@ -32,7 +32,7 @@ class DayDetailTest {
         assertEquals("Mon 26 Oct: today settles at midnight.", dayDetail(today, null, today, locale))
         assertEquals("Fri 30 Oct: still to come.", dayDetail(LocalDate.parse("2026-10-30"), null, today, locale))
         assertEquals(
-            "Thu 1 Oct: no score. Aurio was not tracking yet, or the day has not settled.",
+            "Thu 1 Oct: no score. Waura was not tracking yet, or the day has not settled.",
             dayDetail(LocalDate.parse("2026-10-01"), null, today, locale),
         )
     }

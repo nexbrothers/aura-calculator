@@ -95,7 +95,7 @@ private fun NotReady(context: Context) {
         GlanceModifier.fillMaxSize().cornerRadius(28.dp).background(AurioColors.Surface).padding(14.dp)
             .clickable(openApp(context)),
         contentAlignment = Alignment.Center,
-    ) { Text("Open Aurio to load your aura", style = TextStyle(color = ink, fontSize = 13.sp)) }
+    ) { Text("Open Waura to load your aura", style = TextStyle(color = ink, fontSize = 13.sp)) }
 }
 
 // ---------- 2x2: aura, level, score ----------
@@ -142,7 +142,7 @@ class LimitWidget : GlanceAppWidget() {
                     Column(GlanceModifier.defaultWeight()) {
                         if (closest == null) {
                             Text("No limits set", style = TextStyle(color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium))
-                            Text("Choose apps in Aurio", style = TextStyle(color = subtle, fontSize = 12.sp))
+                            Text("Choose apps in Waura", style = TextStyle(color = subtle, fontSize = 12.sp))
                         } else {
                             Text(closest.label, style = TextStyle(color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                             Text(limitText(closest, s.notCounted), style = TextStyle(color = limitColor(closest), fontSize = 12.sp))
@@ -182,7 +182,7 @@ class LimitsWidget : GlanceAppWidget() {
                         Text("Today's limits", style = TextStyle(color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold))
                         Spacer(GlanceModifier.height(6.dp))
                         if (limits.isEmpty()) {
-                            Text("No limits set. Choose apps in Aurio.", style = TextStyle(color = subtle, fontSize = 12.sp))
+                            Text("No limits set. Choose apps in Waura.", style = TextStyle(color = subtle, fontSize = 12.sp))
                         }
                         limits.forEach { app ->
                             Row(GlanceModifier.fillMaxWidth().padding(vertical = 3.dp)) {

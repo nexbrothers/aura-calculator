@@ -2,7 +2,7 @@
 <!--
     Everything stays on this phone: nothing is backed up to the cloud, and nothing is copied to a
     new phone during device-to-device transfer (Android 12+; allowBackup="false" covers older versions).
-    A new phone starts Aurio fresh.
+    A new phone starts Waura fresh.
 -->
 <data-extraction-rules>
     <cloud-backup>

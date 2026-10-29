@@ -128,14 +128,14 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
             CardHeader("Privacy")
             NavRow(
                 title = "Usage access",
-                subtitle = if (state.usageAccess) "Aurio can see how long apps are open" else "Your limits are not being tracked",
+                subtitle = if (state.usageAccess) "Waura can see how long apps are open" else "Your limits are not being tracked",
                 trailing = { Pill(if (state.usageAccess) "On" else "Off", if (state.usageAccess) PillTone.GAIN else PillTone.UNKNOWN) },
                 onClickLabel = "Change usage access in Settings",
                 onClick = onOpenUsageSettings,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {
-            SeesCard("Aurio sees", "Which app is open\nFor how long\nYour focus sessions", AurioColors.GainBg, AurioColors.GainText, Modifier.weight(1f))
+            SeesCard("Waura sees", "Which app is open\nFor how long\nYour focus sessions", AurioColors.GainBg, AurioColors.GainText, Modifier.weight(1f))
             SeesCard("Never sees", "Messages\nPhotos\nWhat you watch or post", AurioColors.UnknownBg, AurioColors.Ink, Modifier.weight(1f))
         }
 
@@ -205,9 +205,9 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
                 scope.launch {
                     val json = AurioStore.exportJson()
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
-                        .putExtra(Intent.EXTRA_SUBJECT, "Aurio data export")
+                        .putExtra(Intent.EXTRA_SUBJECT, "Waura data export")
                         .putExtra(Intent.EXTRA_TEXT, json)
-                    context.startActivity(Intent.createChooser(send, "Export Aurio data"))
+                    context.startActivity(Intent.createChooser(send, "Export Waura data"))
                 }
             })
             if (debuggable) {
@@ -222,7 +222,7 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
         }
 
         Text(
-            "Aurio $version. Everything stays on this phone.",
+            "Waura $version. Everything stays on this phone.",
             style = AurioType.caption, color = AurioColors.InkSubtle, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
     }
