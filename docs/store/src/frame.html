@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Phone screenshot frame for Google Play: 1080x1920 (9:16). Usage: frame.html?img=<file>&cap=<caption>&tone=<hex> -->
+<style>
+  @font-face { font-family: Bricolage; src: url("file:///C:/Users/AmanSharma/Desktop/Aurio/app/src/main/res/font/bricolage_grotesque.ttf"); font-weight: 200 800; }
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #F6F6F3; }
+  .stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .85; }
+  .b1 { width: 760px; height: 760px; left: -260px; top: -320px; }
+  .b2 { width: 700px; height: 700px; left: 560px; top: -260px; }
+  .cap { position: absolute; left: 80px; right: 80px; top: 120px; color: #17161C;
+         font-family: Bricolage; font-weight: 800; font-size: 76px; line-height: 1.02; letter-spacing: -2.5px; }
+  .phone { position: absolute; left: 110px; top: 400px; width: 860px; height: 1767px; border-radius: 56px; overflow: hidden;
+           background: #F6F6F3; box-shadow: 0 30px 80px rgba(23,22,28,.22), 0 0 0 10px #17161C; }
+  /* Screen is 1080x2424; the status bar (top 130px) and gesture bar are cropped away. */
+  .phone img { position: absolute; left: 0; top: -104px; width: 860px; }
+</style></head>
+<body>
+  <div class="stage">
+    <div class="blob b1" id="b1"></div><div class="blob b2" id="b2"></div>
+    <div class="cap" id="cap"></div>
+    <div class="phone"><img id="shot"></div>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('shot').src = q.get('img');
+  document.getElementById('cap').textContent = q.get('cap');
+  const tones = (q.get('tones') || 'FF9EC7,FFE27A').split(',');
+  document.getElementById('b1').style.background = '#' + tones[0];
+  document.getElementById('b2').style.background = '#' + (tones[1] || tones[0]);
+</script>
+</body></html>

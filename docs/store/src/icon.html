@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 512px; height: 512px; overflow: hidden; }
+  /* Same gradient as res/drawable/ic_launcher_background.xml, cropped to the 72dp visible area. */
+  .bg { width: 512px; height: 512px;
+        background: radial-gradient(circle at 20% 20%, #FF9EC7 0%, #FFE27A 55.5%, #9FF0CF 111%); }
+  svg { position: absolute; inset: 0; }
+</style></head>
+<body>
+  <div class="bg"></div>
+  <!-- Same path as res/drawable/ic_launcher_foreground.xml; viewBox is the adaptive icon's visible 72dp. -->
+  <svg width="512" height="512" viewBox="18 18 72 72">
+    <path d="M35,42L44,67L54,49L64,67L73,42" fill="none" stroke="#17161C" stroke-width="7"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</body></html>
