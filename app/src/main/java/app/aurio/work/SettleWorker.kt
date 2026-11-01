@@ -15,6 +15,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.aurio.AurioApplication
 import app.aurio.data.UsageAccess
+import app.aurio.domain.DebugTime
 import app.aurio.domain.SettleSchedule
 import app.aurio.domain.SystemAurioClock
 import app.aurio.limits.AccessNotice
@@ -47,10 +48,17 @@ class SettleWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
         /** Freezes every finished day not settled yet. Idempotent; the daily recap calls it too. */
         suspend fun settle(app: AurioApplication) {
+            // Simulated time (Developer tools) would read Android's real usage for days that have not
+            // happened yet and freeze them at 0 min. The app's own sync settles them from fake usage.
+            if (DebugTime.enabled) return
             if (!UsageAccess.isGranted(app)) app.repository.markAccessOff(SystemAurioClock.today())
             val startDay = app.repository.startDate()
             val installedAt = app.repository.installedAt()
-            app.repository.settlePastDays { date ->
+            app.repository.settlePastDays(
+                crossingProvider = { date, limits ->
+                    UsageAccess.crossingsForDate(app, date, limits, notBefore = if (date == startDay) installedAt else null)
+                },
+            ) { date ->
                 UsageAccess.minutesForDate(app, date, notBefore = if (date == startDay) installedAt else null)
             }
         }

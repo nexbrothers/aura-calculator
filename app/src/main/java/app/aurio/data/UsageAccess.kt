@@ -52,20 +52,44 @@ object UsageAccess {
         return foregroundMinutes(context, start, end)
     }
 
+    /**
+     * For a finished local date, the minute of the day (0–1439) each app in [limits] went over its
+     * limit, meaning it reached limit + 1 whole minutes as scoring counts them. Apps that stayed
+     * under are left out; empty when access is off. Only this one number per app is kept.
+     */
+    fun crossingsForDate(context: Context, date: java.time.LocalDate, limits: Map<String, Int>, notBefore: Long? = null): Map<String, Int> {
+        if (limits.isEmpty() || !isGranted(context)) return emptyMap()
+        val zone = java.time.ZoneId.systemDefault()
+        val start = DayRules.measureFrom(date.atStartOfDay(zone).toInstant().toEpochMilli(), notBefore)
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        if (start >= end) return emptyMap()
+        val readFrom = start - LOOKBACK_MILLIS
+        val thresholds = limits.mapValues { (_, limit) -> (limit + 1) * 60_000L }
+        return ForegroundTime.crossings(readEvents(context, readFrom, end), readFrom, start, end, thresholds)
+            .mapValues { (_, at) -> java.time.Instant.ofEpochMilli(at).atZone(zone).let { it.hour * 60 + it.minute } }
+    }
+
     /** How far before a day to read, so an app already open at midnight is seen opening. */
     private const val LOOKBACK_MILLIS = 6 * 3_600_000L
 
     /**
      * Sums foreground time from lifecycle events cut exactly at [start] and [end]. Android's daily
      * totals (queryAndAggregateUsageStats) use buckets that need not end at local midnight, so
-     * they can add part of the next day. Only event type, time and package are kept; the activity
-     * name is reduced to a hash at once, so which part of an app was used is never held.
+     * they can add part of the next day.
      */
     private fun foregroundMinutes(context: Context, start: Long, end: Long): Map<String, Int> {
         if (start >= end) return emptyMap()
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val readFrom = start - LOOKBACK_MILLIS
-        val events = usm.queryEvents(readFrom, end)
+        return ForegroundTime.perPackage(readEvents(context, readFrom, end), readFrom, start, end).mapValues { (_, ms) -> (ms / 60_000L).toInt() }
+    }
+
+    /**
+     * Lifecycle events in [from, end). Only event type, time and package are kept; the activity
+     * name is reduced to a hash at once, so which part of an app was used is never held.
+     */
+    private fun readEvents(context: Context, from: Long, end: Long): List<ForegroundEvent> {
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val events = usm.queryEvents(from, end)
         val list = ArrayList<ForegroundEvent>()
         val e = UsageEvents.Event()
         // Already in time order, as ForegroundTime expects.
@@ -77,7 +101,7 @@ object UsageAccess {
             val screen = (e.className as String?)?.hashCode() ?: 0
             list += ForegroundEvent(e.timeStamp, pkg, screen, kind)
         }
-        return ForegroundTime.perPackage(list, readFrom, start, end).mapValues { (_, ms) -> (ms / 60_000L).toInt() }
+        return list
     }
 
     /**

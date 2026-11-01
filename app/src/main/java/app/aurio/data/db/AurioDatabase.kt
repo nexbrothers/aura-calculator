@@ -12,11 +12,13 @@ import androidx.room.withTransaction
         TrackedAppEntity::class, UsageDayEntity::class, FocusSessionEntity::class,
         ScoreEntryEntity::class, DailyScoreEntity::class, LevelEventEntity::class, AppMetaEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         // 2: usage_day records the label, category and limit that applied that day.
         AutoMigration(from = 1, to = 2),
+        // 3: usage_day records the minute a limit was crossed (Smart Rescue).
+        AutoMigration(from = 2, to = 3),
     ],
 )
 abstract class AurioDatabase : RoomDatabase() {

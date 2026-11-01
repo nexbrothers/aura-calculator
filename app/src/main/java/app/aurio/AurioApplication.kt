@@ -9,6 +9,7 @@ import app.aurio.domain.SystemAurioClock
 import app.aurio.focus.FocusNotifications
 import app.aurio.limits.AccessNotice
 import app.aurio.limits.LimitNotifications
+import app.aurio.limits.RescueNotifications
 import app.aurio.recap.RecapAlarm
 import app.aurio.recap.RecapNotifications
 import app.aurio.work.SettleWorker
@@ -24,6 +25,7 @@ class AurioApplication : Application() {
         AurioStore.init(this)
         FocusNotifications.createChannel(this)
         LimitNotifications.createChannel(this)
+        RescueNotifications.createChannel(this)
         RecapNotifications.createChannel(this)
         AccessNotice.createChannel(this)
         SettleWorker.schedule(this)

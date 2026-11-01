@@ -95,10 +95,15 @@ import java.util.Locale
 fun FocusSetupScreen(onStarted: () -> Unit, endedEarly: Boolean = false, onDismissEnded: () -> Unit = {}) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val presets = listOf(25, 50, 90)
+    val presets = listOf(15, 25, 50, 90)
     var minutes by rememberSaveable { mutableIntStateOf(state.settings.defaultFocusMinutes.takeIf { it in presets } ?: 25) }
     var custom by rememberSaveable { mutableStateOf(false) }
     var customMinutes by rememberSaveable { mutableIntStateOf(35) }
+    // Rescue's "Focus for 15 min" picks that length once; Start is still the user's tap.
+    val suggestion by AurioStore.focusSuggestion.collectAsStateWithLifecycle()
+    LaunchedEffect(suggestion) {
+        suggestion?.let { if (it in presets) { minutes = it; custom = false }; AurioStore.takeFocusSuggestion() }
+    }
     val chosen = if (custom) customMinutes else minutes
     val sessionMinutes = state.sessions.map { it.minutes }
     val capLeft = AuraScoring.MAX_FOCUS_PER_DAY - state.daily.focusAura

@@ -47,6 +47,9 @@ import app.aurio.recap.RecapAlarm
 import app.aurio.recap.RecapNotifications
 import app.aurio.limits.LimitCheck
 import app.aurio.limits.LimitNotifications
+import app.aurio.limits.RescueNotifications
+import app.aurio.domain.Rescue
+import app.aurio.domain.RescueStatus
 import app.aurio.widget.Widgets
 import app.aurio.ui.levelup.ShareCard
 import java.time.LocalDate
@@ -215,7 +218,12 @@ object AurioStore {
         // Day one is measured from the install moment, not midnight (DayRules.measureFrom).
         val startDay = r.startDate()
         val installedAt = r.installedAt()
-        r.settlePastDays { date ->
+        r.settlePastDays(
+            crossingProvider = { date, limits ->
+                if (DebugTime.enabled) DebugTime.crossedAtByDate[date]?.filterKeys { it in limits } ?: emptyMap()
+                else UsageAccess.crossingsForDate(context, date, limits, notBefore = if (date == startDay) installedAt else null)
+            },
+        ) { date ->
             when {
                 DebugTime.enabled -> DebugTime.usageByDate[date] ?: emptyMap()
                 granted -> UsageAccess.minutesForDate(context, date, notBefore = if (date == startDay) installedAt else null)
@@ -314,9 +322,28 @@ object AurioStore {
     /** Turning warnings off stops the checks at once; turning them on starts watching again. */
     fun setLimitWarnings(on: Boolean) { scope.launch { settingsStore.setLimitWarnings(on); recheckLimits() } }
 
-    /** The recap goes out when quiet hours end, so a change re-books it. */
+    fun setSmartRescue(on: Boolean) { scope.launch { settingsStore.setSmartRescue(on); recheckLimits() } }
+
+    /** Rescue's status line for one app (app detail). */
+    fun rescueStatus(packageName: String): Flow<RescueStatus> = repo.rescueStatus(packageName)
+
+    /** "Resume" on a paused app: Rescue starts over for it and may nudge again today. */
+    fun resumeRescue(packageName: String) {
+        scope.launch { repo.saveRescueState(packageName, Rescue.resumed()); recheckLimits() }
+    }
+
+    private val _focusSuggestion = MutableStateFlow<Int?>(null)
+
+    /** A session length Focus should pick once (Rescue's "Focus for 15 min"); cleared when taken. */
+    val focusSuggestion: StateFlow<Int?> = _focusSuggestion.asStateFlow()
+
+    fun suggestFocusMinutes(minutes: Int) { _focusSuggestion.value = minutes }
+
+    fun takeFocusSuggestion() { _focusSuggestion.value = null }
+
+    /** The recap goes out when quiet hours end, and Rescue stays silent in them, so a change re-books both. */
     fun setQuietHours(startMinute: Int, endMinute: Int) {
-        scope.launch { settingsStore.setQuietHours(startMinute, endMinute); RecapAlarm.schedule(app!!) }
+        scope.launch { settingsStore.setQuietHours(startMinute, endMinute); RecapAlarm.schedule(app!!); recheckLimits() }
     }
 
     fun setDailyRecap(on: Boolean) { scope.launch { settingsStore.setDailyRecap(on); RecapAlarm.schedule(app!!) } }
@@ -347,6 +374,7 @@ object AurioStore {
                 settingsStore.clear()
                 LimitAlarm.cancel(app!!)
                 LimitNotifications.clear(app!!)
+                RescueNotifications.clear(app!!)
                 RecapAlarm.cancel(app!!)
                 RecapNotifications.clear(app!!)
                 AccessNotice.clear(app!!)

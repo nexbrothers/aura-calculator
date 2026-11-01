@@ -38,6 +38,12 @@ import app.aurio.domain.AuraScoring
 import app.aurio.domain.DayBar
 import app.aurio.domain.History
 import app.aurio.domain.LimitStatus
+import app.aurio.domain.Rescue
+import app.aurio.domain.RescueStatus
+import app.aurio.limits.RescueNotifications
+import app.aurio.ui.components.SecondaryButton
+import androidx.compose.ui.platform.LocalContext
+import java.time.format.DateTimeFormatter
 import app.aurio.domain.SystemAurioClock
 import app.aurio.ui.components.AurioCard
 import app.aurio.ui.components.BackButton
@@ -144,6 +150,18 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
             }
         }
 
+        if (saved?.category == AppCategory.LIMITED) {
+            val rescue by remember(packageName) { AurioStore.rescueStatus(packageName) }.collectAsStateWithLifecycle(RescueStatus.Learning)
+            val context = LocalContext.current
+            Text("Aura rescue", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = AurioSpacing.sm))
+            RescueCard(
+                rescue,
+                on = state.settings.smartRescue && state.settings.limitWarnings,
+                timeText = { RescueNotifications.timeText(context, it) },
+                onResume = { AurioStore.resumeRescue(packageName) },
+            )
+        }
+
         Text("Aura impact", style = AurioType.title, modifier = Modifier.padding(top = AurioSpacing.xxl, bottom = AurioSpacing.sm))
         ImpactCard(History.impact(points), todayUsage?.let { AuraScoring.limitStatus(it) }, state.notCounted)
         Spacer(Modifier.height(AurioSpacing.xxl))
@@ -184,6 +202,50 @@ private fun ImpactCard(impact: AppImpact, today: LimitStatus?, notCounted: NotCo
 }
 
 private fun days(n: Int) = if (n == 1) "1 day" else "$n days"
+
+/** What Smart Rescue knows about this app: still learning, the usual crossing time, or paused. */
+@Composable
+private fun RescueCard(status: RescueStatus, on: Boolean, timeText: (Int) -> String, onResume: () -> Unit) {
+    AurioCard {
+        val (pill, tone, body) = when {
+            !on -> Triple("Off", PillTone.NEUTRAL, "Aura rescue is off. Turn it on in Profile, under Notifications.")
+            status is RescueStatus.Paused -> Triple(
+                "Paused", PillTone.UNKNOWN,
+                "The limit was passed after the last few reminders, so they are paused until ${status.until.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))}.",
+            )
+            status is RescueStatus.Watching -> Triple(
+                "On", PillTone.GAIN,
+                "You usually go over around ${timeText(status.usualMinute)}. One reminder comes ${Rescue.LEAD_MINUTES} min before, on days you are close.",
+            )
+            else -> Triple(
+                "Learning", PillTone.PROJECTED,
+                "Reminders start once this app has gone over its limit on ${Rescue.MIN_OVER_DAYS} of the last 7 counted days.",
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Reminder before you go over", style = AurioType.bodyStrong, modifier = Modifier.weight(1f))
+            Pill(pill, tone)
+        }
+        Spacer(Modifier.height(AurioSpacing.sm))
+        Text(body, style = AurioType.body, color = AurioColors.InkMuted)
+        if (on && status is RescueStatus.Paused) {
+            Spacer(Modifier.height(AurioSpacing.md))
+            SecondaryButton("Resume reminders", onResume, container = AurioColors.SurfaceSunken)
+        }
+    }
+}
+
+@Preview(widthDp = 360, showBackground = true)
+@Composable
+private fun RescueCardPreview() {
+    AurioTheme {
+        Column(Modifier.padding(AurioSpacing.xl), verticalArrangement = Arrangement.spacedBy(AurioSpacing.md)) {
+            RescueCard(RescueStatus.Learning, on = true, timeText = { "11:10 pm" }, onResume = {})
+            RescueCard(RescueStatus.Watching(23 * 60 + 10), on = true, timeText = { "11:10 pm" }, onResume = {})
+            RescueCard(RescueStatus.Paused(LocalDate.parse("2026-11-09")), on = true, timeText = { "11:10 pm" }, onResume = {})
+        }
+    }
+}
 
 private val BAR_AREA: Dp = 120.dp
 

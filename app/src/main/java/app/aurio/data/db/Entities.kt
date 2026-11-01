@@ -33,6 +33,12 @@ data class UsageDayEntity(
     val label: String? = null,
     val category: String? = null,
     val limitMinutes: Int? = null,
+    /**
+     * Minute of the day (0–1439) the app went over its limit, written when the day settles from
+     * Android's full reading. Null when it stayed under, the day is Unknown, or not settled yet.
+     * Smart Rescue learns the usual time from this; it never changes aura.
+     */
+    val crossedAtMinute: Int? = null,
 )
 
 fun TrackedAppEntity.terms() = AppTerms(label, AppCategory.valueOf(category), limitMinutes)

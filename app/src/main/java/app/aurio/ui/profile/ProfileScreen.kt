@@ -190,6 +190,13 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
                 AurioStore.setLimitWarnings(it)
             }
             RowDivider()
+            ToggleRow(
+                "Aura rescue",
+                if (state.settings.limitWarnings) "One reminder shortly before the time you usually go over a limit"
+                else "Needs limit warnings on. One reminder before you usually go over a limit",
+                state.settings.smartRescue,
+            ) { AurioStore.setSmartRescue(it) }
+            RowDivider()
             val recapAt = clockText(context, DailyRecap.minuteOfDay(state.settings.quietStartMinute, state.settings.quietEndMinute))
             ToggleRow("Daily recap", "Yesterday's aura, each morning after $recapAt", state.settings.dailyRecap) {
                 AurioStore.setDailyRecap(it)

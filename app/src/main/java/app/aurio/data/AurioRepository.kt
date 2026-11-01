@@ -10,6 +10,11 @@ import app.aurio.domain.FocusSession
 import app.aurio.domain.LimitAlert
 import app.aurio.domain.LimitWatch
 import app.aurio.domain.LineKind
+import app.aurio.domain.Rescue
+import app.aurio.domain.RescueDay
+import app.aurio.domain.RescueOutcome
+import app.aurio.domain.RescueState
+import app.aurio.domain.RescueStatus
 import app.aurio.domain.WatchedApp
 import app.aurio.domain.Settlement
 import androidx.room.withTransaction
@@ -266,6 +271,62 @@ class AurioRepository(
     suspend fun setAccessNoticeShown(shown: Boolean) =
         if (shown) db.meta().put(AppMetaEntity(ACCESS_NOTICE, "1")) else db.meta().delete(ACCESS_NOTICE)
 
+    // ---- Smart Rescue -------------------------------------------------------------------
+
+    /**
+     * Rescue's view of the last week for each limited app: settled days only (a day not settled
+     * yet has no crossing minute and would read as "stayed under"), from the terms of that day.
+     */
+    suspend fun rescueHistory(today: LocalDate): Map<String, List<RescueDay>> {
+        val settledThrough = db.scores().lastDaily()?.date?.let(LocalDate::parse) ?: return emptyMap()
+        return db.usageDays().between(today.minusDays(Rescue.HISTORY_DAYS).toString(), today.toString())
+            .filter { it.category == AppCategory.LIMITED.name && !LocalDate.parse(it.date).isAfter(settledThrough) }
+            .groupBy({ it.packageName }) { RescueDay(LocalDate.parse(it.date), it.minutes != null, it.crossedAtMinute) }
+    }
+
+    suspend fun rescueState(pkg: String): RescueState = Rescue.decode(db.meta().get(rescueKey(pkg)))
+
+    suspend fun saveRescueState(pkg: String, state: RescueState) = db.meta().put(AppMetaEntity(rescueKey(pkg), Rescue.encode(state)))
+
+    /**
+     * Applies the outcome of the day [pkg]'s last nudge went out, once that day has settled:
+     * kept under its limit, went over, or Unknown. Returns the state to use today.
+     */
+    suspend fun judgedRescueState(pkg: String): RescueState {
+        val state = rescueState(pkg)
+        val sentOn = state.sentOn ?: return state
+        if (state.judged) return state
+        val settledThrough = db.scores().lastDaily()?.date?.let(LocalDate::parse) ?: return state
+        if (sentOn.isAfter(settledThrough)) return state
+        val row = db.usageDays().get(sentOn.toString(), pkg)
+        val minutes = row?.minutes
+        val limit = row?.limitMinutes
+        val outcome = when {
+            minutes == null || limit == null -> RescueOutcome.UNKNOWN
+            minutes > limit -> RescueOutcome.OVER
+            else -> RescueOutcome.KEPT
+        }
+        return Rescue.afterOutcome(state, outcome).also { saveRescueState(pkg, it) }
+    }
+
+    /** Rescue's status line for app detail: learning, the usual crossing time, or paused. */
+    fun rescueStatus(pkg: String): Flow<RescueStatus> {
+        val today = clock.today()
+        return combine(
+            db.usageDays().observeApp(pkg, today.minusDays(Rescue.HISTORY_DAYS).toString()),
+            db.meta().observe(rescueKey(pkg)),
+            lastSettled,
+        ) { rows, stored, settled ->
+            val settledThrough = settled?.date?.let(LocalDate::parse)
+            val days = rows
+                .filter { it.category == AppCategory.LIMITED.name && settledThrough != null && !LocalDate.parse(it.date).isAfter(settledThrough) }
+                .map { RescueDay(LocalDate.parse(it.date), it.minutes != null, it.crossedAtMinute) }
+            Rescue.status(Rescue.usualCrossing(days, today), Rescue.decode(stored), today)
+        }
+    }
+
+    private fun rescueKey(pkg: String) = "rescue:$pkg"
+
     // ---- Daily recap --------------------------------------------------------------------
 
     /** [date]'s settled row and the aura before it (0 before the first day), or null if not settled. */
@@ -294,8 +355,13 @@ class AurioRepository(
      * Safe to call any time and from any thread: a lock keeps the worker and the app apart.
      * [usageProvider] returns real minutes for a past date, or null when they cannot be read
      * (then the day is Unknown). It is not called for days with Usage Access seen off (see DayRules).
+     * [crossingProvider] gets the limits of the apps that went over and returns the minute of the
+     * day each crossed (Smart Rescue only; it never changes points).
      */
-    suspend fun settlePastDays(usageProvider: (LocalDate) -> Map<String, Int>?) = settleLock.withLock {
+    suspend fun settlePastDays(
+        crossingProvider: (LocalDate, Map<String, Int>) -> Map<String, Int> = { _, _ -> emptyMap() },
+        usageProvider: (LocalDate) -> Map<String, Int>?,
+    ) = settleLock.withLock {
         // A session that ended before now belongs to a day about to settle: complete it first.
         reconcileLocked()
         val start = db.meta().get(START_DATE)?.let(LocalDate::parse) ?: return@withLock
@@ -320,6 +386,11 @@ class AurioRepository(
             }
             val sessions = db.focusSessions().forDate(date.toString()).filter { it.status == "COMPLETED" }
             val day = Settlement.settle(usages, sessions.map { it.creditedMinutes }, total, streak, isFirstDay = date == start)
+            val overLimits = usages
+                .filter { it.category == AppCategory.LIMITED && (it.usedMinutes ?: 0) > it.limitMinutes }
+                .associate { it.packageName to it.limitMinutes }
+            val crossed = if (provided == null || overLimits.isEmpty()) emptyMap()
+            else runCatching { crossingProvider(date, overLimits) }.getOrDefault(emptyMap())
             val settledAt = clock.nowMillis()
             db.withTransaction {
                 // Freeze the day's usage as it was scored, so history shows the same minutes
@@ -328,6 +399,7 @@ class AurioRepository(
                     db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), u.packageName, null, settledAt, u.label, u.category.name, u.limitMinutes.takeIf { u.category == AppCategory.LIMITED }))
                     db.usageDays().fillTerms(date.toString(), u.packageName, u.label, u.category.name, u.limitMinutes.takeIf { u.category == AppCategory.LIMITED })
                     db.usageDays().setMinutes(date.toString(), u.packageName, u.usedMinutes, settledAt)
+                    db.usageDays().setCrossedAt(date.toString(), u.packageName, crossed[u.packageName])
                 }
                 db.scores().insertEntries(day.entries.map {
                     ScoreEntryEntity(date = date.toString(), kind = it.kind.name, packageName = it.packageName, points = it.points, note = it.note)
@@ -367,6 +439,20 @@ class AurioRepository(
         root.put("scoreLines", JSONArray().also { a ->
             db.scores().allEntries().forEach {
                 a.put(JSONObject().put("date", it.date).put("kind", it.kind).put("package", it.packageName ?: JSONObject.NULL).put("points", it.points).put("note", it.note))
+            }
+        })
+        root.put("rescue", JSONArray().also { a ->
+            db.trackedApps().getAll().filter { it.category == AppCategory.LIMITED.name }.forEach {
+                val s = rescueState(it.packageName)
+                a.put(
+                    JSONObject().put("package", it.packageName).put("style", s.style.name).put("ignoredInARow", s.ignoredInARow)
+                        .put("pausedUntil", s.pausedUntil?.toString() ?: JSONObject.NULL).put("lastNudge", s.sentOn?.toString() ?: JSONObject.NULL),
+                )
+            }
+        })
+        root.put("limitCrossings", JSONArray().also { a ->
+            db.usageDays().between("0000-01-01", "9999-12-31").filter { it.crossedAtMinute != null }.forEach {
+                a.put(JSONObject().put("date", it.date).put("package", it.packageName).put("minuteOfDay", it.crossedAtMinute))
             }
         })
         return root.toString(2)

@@ -17,6 +17,8 @@ data class Settings(
     val name: String = "",
     val focusReminders: Boolean = true,
     val limitWarnings: Boolean = true,
+    /** Smart Rescue nudges; they go out only while limit warnings are on too. */
+    val smartRescue: Boolean = true,
     val dailyRecap: Boolean = false,
     val quietStartMinute: Int = 22 * 60,
     val quietEndMinute: Int = 7 * 60,
@@ -38,6 +40,7 @@ class SettingsStore(private val context: Context) {
         val name = stringPreferencesKey("name")
         val focusReminders = booleanPreferencesKey("focus_reminders")
         val limitWarnings = booleanPreferencesKey("limit_warnings")
+        val smartRescue = booleanPreferencesKey("smart_rescue")
         val dailyRecap = booleanPreferencesKey("daily_recap")
         val quietStart = intPreferencesKey("quiet_start")
         val quietEnd = intPreferencesKey("quiet_end")
@@ -56,6 +59,7 @@ class SettingsStore(private val context: Context) {
             name = p[K.name] ?: d.name,
             focusReminders = p[K.focusReminders] ?: d.focusReminders,
             limitWarnings = p[K.limitWarnings] ?: d.limitWarnings,
+            smartRescue = p[K.smartRescue] ?: d.smartRescue,
             dailyRecap = p[K.dailyRecap] ?: d.dailyRecap,
             quietStartMinute = p[K.quietStart] ?: d.quietStartMinute,
             quietEndMinute = p[K.quietEnd] ?: d.quietEndMinute,
@@ -72,6 +76,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setName(name: String) = context.dataStore.edit { it[K.name] = name.trim().take(30) }
     suspend fun setFocusReminders(v: Boolean) = context.dataStore.edit { it[K.focusReminders] = v }
     suspend fun setLimitWarnings(v: Boolean) = context.dataStore.edit { it[K.limitWarnings] = v }
+    suspend fun setSmartRescue(v: Boolean) = context.dataStore.edit { it[K.smartRescue] = v }
     suspend fun setDailyRecap(v: Boolean) = context.dataStore.edit { it[K.dailyRecap] = v }
     suspend fun setQuietHours(startMin: Int, endMin: Int) = context.dataStore.edit {
         it[K.quietStart] = startMin.coerceIn(0, 1439); it[K.quietEnd] = endMin.coerceIn(0, 1439)

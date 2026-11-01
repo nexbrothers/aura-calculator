@@ -61,6 +61,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN = "app.aurio.extra.OPEN"
         const val OPEN_FOCUS = "focus"
+        /** Focus with Smart Rescue's short session chosen (it still starts only on Start). */
+        const val OPEN_FOCUS_SHORT = "focus_short"
         const val OPEN_LIMITS = "limits"
         const val OPEN_INSIGHTS = "insights"
     }

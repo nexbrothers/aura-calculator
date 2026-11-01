@@ -19,6 +19,8 @@ import app.aurio.domain.AuraScoring
 import app.aurio.domain.DebugTime
 import app.aurio.domain.LimitAlert
 import app.aurio.domain.LimitWatch
+import app.aurio.domain.Rescue
+import app.aurio.domain.RescueCandidate
 import app.aurio.domain.SystemAurioClock
 import app.aurio.domain.WatchedApp
 import kotlinx.coroutines.CoroutineScope
@@ -30,9 +32,9 @@ import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 
 /**
- * "5 min left" and "limit reached" for limited apps, worked out on the phone from usage stats.
- * Each check posts what is due and books the next one (LimitWatch says when). Scoring never
- * depends on any of this: a late or missing warning changes no aura.
+ * "5 min left" and "limit reached" for limited apps, plus Smart Rescue nudges, worked out on the
+ * phone from usage stats. Each check posts what is due and books the next one (LimitWatch and
+ * Rescue say when). Scoring never depends on any of this: a late or missing warning changes no aura.
  */
 object LimitCheck {
     /**
@@ -56,14 +58,41 @@ object LimitCheck {
         val apps = repo.watchedApps(day, minutes)
         val sent = repo.limitAlertsSent(day)
         val due = LimitWatch.alertsDue(apps, sent)
+        val now = Instant.ofEpochMilli(SystemAurioClock.nowMillis()).atZone(SystemAurioClock.zone())
+        val nowMinute = now.hour * 60 + now.minute
+        val quiet = LimitWatch.inQuietHours(nowMinute, settings.quietStartMinute, settings.quietEndMinute)
         if (due.isNotEmpty()) {
-            val now = Instant.ofEpochMilli(SystemAurioClock.nowMillis()).atZone(SystemAurioClock.zone())
-            val quiet = LimitWatch.inQuietHours(now.hour * 60 + now.minute, settings.quietStartMinute, settings.quietEndMinute)
             due.forEach { (watched, alert) -> LimitNotifications.post(app, watched, alert, silent = quiet) }
             repo.saveLimitAlertsSent(day, sent + due.map { (watched, alert) -> watched.packageName to alert })
         }
-        val next = LimitWatch.minutesUntilNextCheck(apps, sent + due.map { (watched, alert) -> watched.packageName to alert })
+        val sentNow = sent + due.map { (watched, alert) -> watched.packageName to alert }
+        val limitNext = LimitWatch.minutesUntilNextCheck(apps, sentNow)
+        val rescueNext = if (settings.smartRescue && RescueNotifications.canPost(app)) {
+            rescue(app, apps, sentNow.map { it.first }.toSet(), nowMinute, quiet, settings.quietStartMinute, settings.quietEndMinute)
+        } else null
+        val next = listOfNotNull(limitNext, rescueNext).minOrNull()
         if (next == null) LimitAlarm.cancel(app) else LimitAlarm.schedule(app, SystemAurioClock.nowMillis() + next * 60_000L)
+    }
+
+    /**
+     * Posts any Smart Rescue nudge that is due (see Rescue) and returns the minutes until the next
+     * one could be, or null. [warned] are the apps that already had a limit warning today.
+     */
+    private suspend fun rescue(
+        app: AurioApplication, apps: List<WatchedApp>, warned: Set<String>,
+        nowMinute: Int, quiet: Boolean, quietStart: Int, quietEnd: Int,
+    ): Int? {
+        val repo = app.repository
+        val day = SystemAurioClock.today()
+        val history = repo.rescueHistory(day)
+        val candidates = apps.map { RescueCandidate(it, Rescue.usualCrossing(history[it.packageName].orEmpty(), day), repo.judgedRescueState(it.packageName)) }
+        val due = Rescue.due(candidates, day, nowMinute, warned, quiet)
+        due.forEach { c ->
+            RescueNotifications.post(app, c.app, c.state.style, c.usualMinute ?: return@forEach)
+            repo.saveRescueState(c.app.packageName, Rescue.sent(c.state, day))
+        }
+        val after = candidates.map { c -> if (c in due) c.copy(state = Rescue.sent(c.state, day)) else c }
+        return Rescue.minutesUntilNextCheck(after, day, nowMinute, warned, Rescue.quietMinutesLeft(nowMinute, quietStart, quietEnd))
     }
 
     /** Runs a check off the main thread; failures only skip this check. */

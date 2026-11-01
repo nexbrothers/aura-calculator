@@ -29,15 +29,38 @@ object ForegroundTime {
      * - A stretch still open at the end runs until [end]. Only the part inside the window counts.
      */
     fun perPackage(events: List<ForegroundEvent>, readFrom: Long, start: Long, end: Long): Map<String, Long> {
+        val total = HashMap<String, Long>()
+        stretches(events, readFrom, start, end) { pkg, from, to -> total.merge(pkg, to - from, Long::plus) }
+        return total
+    }
+
+    /**
+     * The moment each package in [thresholds] reached its threshold of foreground milliseconds
+     * inside [start, end), counted exactly as [perPackage] counts. Packages that never got there are left out.
+     */
+    fun crossings(events: List<ForegroundEvent>, readFrom: Long, start: Long, end: Long, thresholds: Map<String, Long>): Map<String, Long> {
+        val total = HashMap<String, Long>()
+        val crossed = HashMap<String, Long>()
+        stretches(events, readFrom, start, end) { pkg, from, to ->
+            val threshold = thresholds[pkg] ?: return@stretches
+            val before = total[pkg] ?: 0L
+            if (pkg !in crossed && before + (to - from) >= threshold) crossed[pkg] = from + (threshold - before).coerceAtLeast(0)
+            total[pkg] = before + (to - from)
+        }
+        return crossed
+    }
+
+    /** Calls [onStretch] with each foreground stretch cut to [start, end); per package, in time order. */
+    private fun stretches(events: List<ForegroundEvent>, readFrom: Long, start: Long, end: Long, onStretch: (String, Long, Long) -> Unit) {
         val since = HashMap<String, Long>()
         val resumed = HashMap<String, HashMap<Int, Int>>()
         val seen = HashSet<String>()
-        val total = HashMap<String, Long>()
         var lastEventAt = readFrom
 
         fun add(pkg: String, from: Long, to: Long) {
-            val counted = minOf(to, end) - maxOf(from, start)
-            if (counted > 0) total.merge(pkg, counted, Long::plus)
+            val cutFrom = maxOf(from, start)
+            val cutTo = minOf(to, end)
+            if (cutTo > cutFrom) onStretch(pkg, cutFrom, cutTo)
         }
 
         fun close(pkg: String, at: Long) {
@@ -72,6 +95,5 @@ object ForegroundTime {
             lastEventAt = e.timeMillis
         }
         since.keys.toList().forEach { close(it, end) }
-        return total
     }
 }

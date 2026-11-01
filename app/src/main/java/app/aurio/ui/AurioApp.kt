@@ -38,6 +38,7 @@ import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.MainActivity
 import app.aurio.data.AurioStore
+import app.aurio.domain.Rescue
 import app.aurio.ui.levelup.LevelUpScreen
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +113,10 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
     // a limit warning opens Limits; the daily recap opens Insights.
     LaunchedEffect(openRequest) {
         if (openRequest == MainActivity.OPEN_FOCUS) goTab(Tab.FOCUS.route)
+        if (openRequest == MainActivity.OPEN_FOCUS_SHORT) {
+            AurioStore.suggestFocusMinutes(Rescue.FOCUS_OFFER_MINUTES)
+            goTab(Tab.FOCUS.route)
+        }
         if (openRequest == MainActivity.OPEN_LIMITS) goTab(Tab.LIMITS.route)
         if (openRequest == MainActivity.OPEN_INSIGHTS) goTab(Tab.INSIGHTS.route)
         if (openRequest != null) onOpenHandled()

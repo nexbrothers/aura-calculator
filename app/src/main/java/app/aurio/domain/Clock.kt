@@ -24,8 +24,10 @@ object DebugTime {
     @Volatile var enabled: Boolean = false
     /** Fake foreground minutes: date -> package -> minutes. */
     val usageByDate: MutableMap<LocalDate, MutableMap<String, Int>> = java.util.concurrent.ConcurrentHashMap()
+    /** Fake limit crossings: date -> package -> minute of the day. */
+    val crossedAtByDate: MutableMap<LocalDate, MutableMap<String, Int>> = java.util.concurrent.ConcurrentHashMap()
 
-    fun reset() { offsetMillis = 0L; enabled = false; usageByDate.clear() }
+    fun reset() { offsetMillis = 0L; enabled = false; usageByDate.clear(); crossedAtByDate.clear() }
 }
 
 class FakeClock(var millis: Long, var zoneId: ZoneId = ZoneId.of("UTC")) : AurioClock {

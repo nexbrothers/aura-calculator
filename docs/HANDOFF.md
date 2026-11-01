@@ -13,7 +13,8 @@ Plans (Claude Docs, read-only context):
 - Profile > Privacy > Privacy policy opens `https://waura.nexbrothers.com/privacy-policy` in the user's browser.
 - Room database (7 tables) + DataStore settings; `AurioStore` exposes `AurioState` derived from them.
 - Onboarding (5 steps, resumes), app picker (Limited / Neutral / Essential), Limits with steppers, Manage apps.
-- Focus: presets 25/50/90 plus Custom 5 to 180 min; end time saved; overdue session completed on next open.
+- Focus: presets 15/25/50/90 plus Custom 5 to 180 min; end time saved; overdue session completed on next open.
+- Smart Aura Rescue (see "Smart Rescue" below): one nudge before the usual limit-crossing time, backs off when ignored.
 - Midnight settlement (`domain/Settlement.kt`, `AurioRepository.settlePastDays`, `work/SettleWorker.kt`) freezes days:
   entries, daily_score, streak, level events. Pure scoring rules live in `domain/AuraScoring.kt`.
 - Insights from real history, Profile (name, default length, reduce motion, export JSON, delete all data).
@@ -106,6 +107,19 @@ Plans (Claude Docs, read-only context):
 - ShareCard draws a 1080x1920 PNG (aura, level, score only), shares it via FileProvider (cache/share only).
   Delete all data removes it. Developer tools > Preview level-up / Preview share card show both with sample
   values (nothing saved or shared). Card text stays inside the story safe area (top 250, bottom 340 px).
+
+## Smart Rescue
+- Rules in `domain/Rescue.kt` (tests: `RescueTest`); posting in `limits/RescueNotifications.kt`, run from `LimitCheck`
+  (same alarm). Never changes aura.
+- Data: schema 3 adds `usage_day.crossedAtMinute`, written by settlement from the full-day events
+  (`UsageAccess.crossingsForDate`, crossing = limit + 1 whole minutes). Per-app state in `app_meta` key `rescue:<pkg>`.
+- Learns from the last 7 settled days (4 known, 3 over); usual time = median. Nudge from 30 min before, only at
+  >= 50% used, not after "5 min left", once per app per day, 2 per day max, never in quiet hours.
+- Back-off: kept limit resets; 2 ignored days switch to the focus offer ("Focus for 15 min" opens Focus with 15
+  chosen); 2 more pause 7 days, then one more ignore pauses again. App detail shows Learning / On / Paused + Resume.
+- Profile > Notifications > Aura rescue (default on, needs limit warnings on). Channel "Aura rescue", low importance.
+- Days settled before schema 3 have no crossing minute, so Rescue starts learning from the upgrade on.
+- Developer tools > Aura rescue fakes four over-limit days and jumps ahead; then leave Waura and run a limit check.
 
 ## Widgets
 - widget/AuraWidget.kt: 2x2 (aura bitmap, level, score, today), 4x1 (closest limit + Start focus), 4x2 (aura + 3 limits).

@@ -87,6 +87,29 @@ fun DebugScreen(onBack: () -> Unit, onPreviewLevelUp: () -> Unit = {}, onPreview
             }
         }
 
+        Card("Aura rescue") {
+            // Four days going over 20 min from now, settled by moving time on four days. Today is then
+            // past half of each limit, inside the reminder window: leave Waura and run a limit check.
+            SecondaryButton("Fake a 4-day pattern, then jump ahead", {
+                change {
+                    DebugTime.enabled = true
+                    val start = SystemAurioClock.today()
+                    val now = java.time.Instant.ofEpochMilli(SystemAurioClock.nowMillis()).atZone(SystemAurioClock.zone())
+                    val crossAt = (now.hour * 60 + now.minute + 20).coerceAtMost(24 * 60 - 1)
+                    for (i in 0L..4L) {
+                        val usage = DebugTime.usageByDate.getOrPut(start.plusDays(i)) { mutableMapOf() }
+                        val crossed = DebugTime.crossedAtByDate.getOrPut(start.plusDays(i)) { mutableMapOf() }
+                        state.limitedApps.forEach { app ->
+                            if (i < 4) { usage[app.packageName] = app.limitMinutes + 10; crossed[app.packageName] = crossAt }
+                            else usage[app.packageName] = app.limitMinutes * 6 / 10
+                        }
+                    }
+                    DebugTime.offsetMillis += 4 * 86_400_000L
+                }
+            }, container = AurioColors.SurfaceSunken)
+            Text("Costs aura: the four fake days go over every limit. Reset afterwards.", style = AurioType.caption, color = AurioColors.InkSubtle)
+        }
+
         Card("Focus") {
             SecondaryButton("Finish running session now", {
                 val r = state.running

@@ -46,8 +46,14 @@ interface UsageDayDao {
     @Query("UPDATE usage_day SET limitMinutes = :limit WHERE date = :date AND packageName = :pkg")
     suspend fun setLimit(date: String, pkg: String, limit: Int?)
 
+    @Query("UPDATE usage_day SET crossedAtMinute = :minute WHERE date = :date AND packageName = :pkg")
+    suspend fun setCrossedAt(date: String, pkg: String, minute: Int?)
+
     @Query("SELECT * FROM usage_day WHERE date = :date AND packageName = :pkg")
     suspend fun get(date: String, pkg: String): UsageDayEntity?
+
+    @Query("SELECT * FROM usage_day WHERE date >= :from AND date < :until ORDER BY date")
+    suspend fun between(from: String, until: String): List<UsageDayEntity>
 
     @Query("SELECT * FROM usage_day WHERE date = :date")
     suspend fun forDate(date: String): List<UsageDayEntity>
