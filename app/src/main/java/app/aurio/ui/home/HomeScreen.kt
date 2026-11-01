@@ -49,6 +49,8 @@ import app.aurio.data.AurioState
 import app.aurio.data.AurioStore
 import app.aurio.data.NotCountedReason
 import app.aurio.domain.AuraLevel
+import app.aurio.domain.AuraScoring
+import app.aurio.ui.components.PrimaryButton
 import app.aurio.domain.SystemAurioClock
 import app.aurio.ui.components.AuraField
 import app.aurio.ui.components.AurioCard
@@ -81,8 +83,15 @@ import java.time.format.DateTimeFormatter
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: () -> Unit, onOpenApp: (String) -> Unit = {}) {
+fun HomeScreen(
+    onEditLimits: () -> Unit,
+    onProfile: () -> Unit,
+    onTurnOnAccess: () -> Unit,
+    onOpenApp: (String) -> Unit = {},
+    onFocus: () -> Unit = {},
+) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
+    val weekChanges by remember { AurioStore.weekChanges() }.collectAsStateWithLifecycle(emptyList())
     var showLevels by rememberSaveable { mutableStateOf(false) }
     var showStreak by rememberSaveable { mutableStateOf(false) }
 
@@ -112,6 +121,15 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
         Greeting(state, level, onProfile)
         AuraCard(state, displayScore, level, brightness, onLevelClick = { showLevels = true }, onStreakClick = { showStreak = true })
         state.notCounted?.let { NotCountedNotice(it, onTurnOnAccess) }
+        InsightCard(
+            homeInsight(
+                state.apps, weekChanges,
+                focusLeft = (AuraScoring.MAX_FOCUS_PER_DAY - state.daily.focusAura).coerceAtLeast(0),
+                focusMinutes = state.settings.defaultFocusMinutes,
+            ),
+            running = state.running != null,
+            onFocus = onFocus,
+        )
         LimitsCard(state, onEditLimits, onOpenApp)
         ChangesCard(state)
     }
@@ -125,6 +143,18 @@ fun HomeScreen(onEditLimits: () -> Unit, onProfile: () -> Unit, onTurnOnAccess: 
         ModalBottomSheet(onDismissRequest = { showStreak = false }, containerColor = AurioColors.Surface) {
             StreakSheet(current = state.streakDays, best = state.bestStreak)
         }
+    }
+}
+
+/** Home's one insight (see homeInsight) and the way into a focus session. */
+@Composable
+private fun InsightCard(insight: String?, running: Boolean, onFocus: () -> Unit) {
+    AurioCard(padding = AurioSpacing.lg) {
+        insight?.let {
+            Text(it, style = AurioType.body, color = AurioColors.Ink)
+            Spacer(Modifier.height(AurioSpacing.md))
+        }
+        PrimaryButton(if (running) "Back to your focus session" else "Start focus session", onFocus)
     }
 }
 

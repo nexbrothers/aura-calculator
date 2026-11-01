@@ -46,6 +46,18 @@ object DayRules {
         if (provided == null) null else maxOf(provided[pkg] ?: 0, stored ?: 0)
 
     /**
+     * The terms a tracked app is scored by on [date]. A limited app added after the install day
+     * ([startDate]) is not scored on the day it was added ([addedOn]): it counts from the next
+     * day, like any other change that could only add aura. Otherwise adding an app you never use
+     * late in the evening would earn +20 for a day it was never limited. On the install day
+     * (and during onboarding, before [startDate] exists) apps count at once.
+     */
+    fun termsOnDay(terms: AppTerms, addedOn: LocalDate, date: LocalDate, startDate: LocalDate?): AppTerms {
+        val addedThatDay = addedOn == date && startDate != null && date.isAfter(startDate)
+        return if (terms.category == AppCategory.LIMITED && addedThatDay) terms.copy(category = AppCategory.NEUTRAL, limitMinutes = null) else terms
+    }
+
+    /**
      * Today's terms after the user edits an app ([edited] is null when it was removed).
      * A lower limit applies at once. Anything that could soften today's result (a higher limit,
      * a category change, removing the app) waits until tomorrow, so an edit never dodges a penalty.

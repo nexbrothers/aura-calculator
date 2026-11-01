@@ -117,13 +117,15 @@ object AurioStore {
         if (app != null) return
         app = application
         val dayData = today.flatMapLatest { d ->
-            combine(repo.usageFor(d), repo.focusFor(d), usageAccess, repo.running, repo.accessWasOff(d)) { usage, focus, access, running, wasOff ->
-                DayData(usage, focus, access, running, wasOff)
+            val offAndStart = combine(repo.accessWasOff(d), repo.startDateFlow()) { off, start -> off to start }
+            combine(repo.usageFor(d), repo.focusFor(d), usageAccess, repo.running, offAndStart) { usage, focus, access, running, (wasOff, start) ->
+                DayData(usage, focus, access, running, wasOff, d, start)
             }
         }
         scope.launch {
             combine(repo.trackedApps, dayData, repo.lastSettled, repo.history(), settingsStore.settings) { tracked, day, last, history, settings ->
-                val current = tracked.associate { it.packageName to it.terms() }
+                // Apps without a row today (rare: normally every app has one) follow the same rule as settlement.
+                val current = tracked.associate { it.packageName to repo.termsOnDay(it, day.date, day.startDate) }
                 val recorded = day.usage.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
                 val minutes = day.usage.associate { it.packageName to it.minutes }
                 // Once access was seen off today, today settles as Unknown, so Home shows Unknown too.
@@ -135,7 +137,8 @@ object AurioStore {
                     bankedScore = last?.totalAfter ?: 0,
                     sessions = repo.toFocusSessions(day.focus),
                     apps = apps,
-                    tracked = current,
+                    // Saved settings (what tomorrow uses), not today's terms: screens compare the two.
+                    tracked = tracked.associate { it.packageName to it.terms() },
                     usageAccess = day.access,
                     measuredMinutes = if (day.access) minutes.mapNotNull { (k, v) -> v?.let { k to it } }.toMap() else emptyMap(),
                     notCounted = when {
@@ -185,6 +188,8 @@ object AurioStore {
         val access: Boolean,
         val running: FocusSessionEntity?,
         val accessWasOff: Boolean,
+        val date: java.time.LocalDate,
+        val startDate: java.time.LocalDate?,
     )
 
     // ---- Usage and the daily rhythm ------------------------------------------------------

@@ -16,6 +16,11 @@ class TomorrowNoteTest {
     @Test fun categoryMoved() =
         assertEquals("Moves to neutral tomorrow", tomorrowNote(today, AppTerms("Instagram", AppCategory.NEUTRAL, null)))
 
+    @Test fun newLimitedAppStartsTomorrow() = assertEquals(
+        "Limit starts tomorrow, not scored today",
+        tomorrowNote(today.copy(category = AppCategory.NEUTRAL, limitMinutes = 0), AppTerms("Instagram", AppCategory.LIMITED, 30)),
+    )
+
     @Test fun limitRaised() =
         assertEquals("Limit is 30 min today, 45 min from tomorrow", tomorrowNote(today, AppTerms("Instagram", AppCategory.LIMITED, 45)))
 

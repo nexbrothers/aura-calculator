@@ -152,6 +152,7 @@ private fun MainNav(onOpenUsageSettings: () -> Unit, openRequest: String?, onOpe
                         onProfile = { goTab(Tab.PROFILE.route) },
                         onTurnOnAccess = onOpenUsageSettings,
                         onOpenApp = { nav.navigate("app/$it") },
+                        onFocus = { goTab(Tab.FOCUS.route) },
                     )
                 }
                 composable(Tab.FOCUS.route) { entry ->

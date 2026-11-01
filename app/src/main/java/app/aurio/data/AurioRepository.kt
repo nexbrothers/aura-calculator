@@ -2,6 +2,7 @@ package app.aurio.data
 
 import app.aurio.data.db.*
 import app.aurio.domain.AppCategory
+import app.aurio.domain.AppTerms
 import app.aurio.domain.AuraScoring
 import app.aurio.domain.AurioClock
 import app.aurio.domain.DayRecord
@@ -11,6 +12,7 @@ import app.aurio.domain.LimitAlert
 import app.aurio.domain.LimitWatch
 import app.aurio.domain.LineKind
 import app.aurio.domain.Progress
+import app.aurio.domain.Validation
 import app.aurio.domain.Rescue
 import app.aurio.domain.WeekChange
 import app.aurio.domain.RescueDay
@@ -91,7 +93,7 @@ class AurioRepository(
             val limit = if (category == AppCategory.LIMITED) (old?.limitMinutes ?: DEFAULT_LIMIT) else null
             db.trackedApps().upsert(TrackedAppEntity(pkg, label, category.name, limit, old?.addedAt ?: clock.nowMillis()))
         }
-        // Apps added just now are scored from today.
+        // Apps added just now are scored from tomorrow (from today on the install day; DayRules.termsOnDay).
         recordTerms(clock.today())
     }
 
@@ -116,14 +118,23 @@ class AurioRepository(
      * same day change nothing, so editing an app cannot rewrite today's terms behind DayRules.
      */
     suspend fun recordTerms(date: LocalDate) = db.withTransaction {
+        if (isSettled(date)) return@withTransaction
         val now = clock.nowMillis()
+        val start = db.meta().get(START_DATE)?.let(LocalDate::parse)
         db.trackedApps().getAll().forEach { a ->
-            db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), a.packageName, null, now, a.label, a.category, a.limitMinutes))
-            db.usageDays().fillTerms(date.toString(), a.packageName, a.label, a.category, a.limitMinutes)
+            val terms = DayRules.termsOnDay(a.terms(), addedOn = dateOf(a.addedAt), date = date, startDate = start)
+            db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), a.packageName, null, now, terms.label, terms.category.name, terms.limitMinutes))
+            db.usageDays().fillTerms(date.toString(), a.packageName, terms.label, terms.category.name, terms.limitMinutes)
         }
     }
 
+    /**
+     * Saves minutes read during [date]. A day that has already settled is frozen: its minutes are
+     * what it was scored by, so a later reading (for example after the clock was set back) never
+     * rewrites them.
+     */
     suspend fun recordUsage(date: LocalDate, minutesByPackage: Map<String, Int?>) = db.withTransaction {
+        if (isSettled(date)) return@withTransaction
         val now = clock.nowMillis()
         minutesByPackage.forEach { (p, m) ->
             db.usageDays().insertIfAbsent(UsageDayEntity(date.toString(), p, m, now))
@@ -253,7 +264,8 @@ class AurioRepository(
     suspend fun watchedApps(date: LocalDate, minutes: Map<String, Int>): List<WatchedApp> {
         if (db.meta().get(accessOffKey(date)) != null && DayRules.accessOffCounts(date, startDate())) return emptyList()
         val recorded = db.usageDays().forDate(date.toString()).mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
-        val current = db.trackedApps().getAll().associate { it.packageName to it.terms() }
+        val start = startDate()
+        val current = db.trackedApps().getAll().associate { it.packageName to termsOnDay(it, date, start) }
         return DayRules.appsForDay(recorded, current) { minutes[it] ?: 0 }
             .filter { it.category == AppCategory.LIMITED && it.limitMinutes > 0 }
             .map { WatchedApp(it.packageName, it.label, it.limitMinutes, it.usedMinutes ?: 0) }
@@ -324,8 +336,13 @@ class AurioRepository(
             minutes > limit -> RescueOutcome.OVER
             else -> RescueOutcome.KEPT
         }
+        recordRescue(outcome)
         return Rescue.afterOutcome(state, outcome).also { saveRescueState(pkg, it) }
     }
+
+    /** Counts a reminder sent ([outcome] null) or how a reminder's day turned out, for the progress summary. */
+    suspend fun recordRescue(outcome: RescueOutcome?) =
+        db.meta().put(AppMetaEntity(RESCUE_STATS, Validation.encode(Validation.record(Validation.decode(db.meta().get(RESCUE_STATS)), outcome))))
 
     /** Rescue's status line for app detail: learning, the usual crossing time, or paused. */
     fun rescueStatus(pkg: String): Flow<RescueStatus> {
@@ -398,7 +415,8 @@ class AurioRepository(
             val rows = db.usageDays().forDate(date.toString())
             val stored = rows.associate { it.packageName to it.minutes }
             val recorded = rows.mapNotNull { r -> r.terms()?.let { r.packageName to it } }.toMap()
-            val current = apps.filter { it.addedAt < endOfDay }.associate { it.packageName to it.terms() }
+            val current = apps.filter { it.addedAt < endOfDay }
+                .associate { it.packageName to DayRules.termsOnDay(it.terms(), dateOf(it.addedAt), date, start) }
             val usages = DayRules.appsForDay(recorded, current) { pkg ->
                 DayRules.settledMinutes(provided, pkg, stored[pkg])
             }
@@ -439,6 +457,7 @@ class AurioRepository(
         val root = JSONObject()
         root.put("app", "Waura")
         root.put("exportedAt", Instant.ofEpochMilli(clock.nowMillis()).toString())
+        root.put("progressSummary", progressSummary())
         root.put("trackedApps", JSONArray().also { a ->
             db.trackedApps().getAll().forEach {
                 a.put(JSONObject().put("package", it.packageName).put("label", it.label).put("category", it.category).put("limitMinutes", it.limitMinutes ?: JSONObject.NULL))
@@ -476,7 +495,52 @@ class AurioRepository(
         return root.toString(2)
     }
 
+    /**
+     * Week-by-week numbers for the 14-day test (see Validation), first in the export so a tester
+     * can share just this part. Built only from what the phone already records.
+     */
+    private suspend fun progressSummary(): JSONObject {
+        val summary = JSONObject()
+        val start = db.meta().get(START_DATE)?.let(LocalDate::parse) ?: return summary.put("startDate", JSONObject.NULL)
+        val daily = db.scores().allDaily()
+        val settledThrough = daily.lastOrNull()?.date?.let(LocalDate::parse)
+        val usage = db.usageDays().between(start.toString(), clock.today().toString())
+            .map { DayRecord(LocalDate.parse(it.date), it.minutes, it.terms()) }
+        val focus = db.focusSessions().all().filter { it.status == "COMPLETED" }.map { LocalDate.parse(it.date) }
+        val weeks = Validation.weeks(start, settledThrough, usage, focus, daily.associate { LocalDate.parse(it.date) to it.delta })
+        summary.put("startDate", start.toString())
+        summary.put("settledThrough", settledThrough?.toString() ?: JSONObject.NULL)
+        summary.put("tracking", JSONObject().put("limitedApps", db.trackedApps().getAll().count { it.category == AppCategory.LIMITED.name }))
+        summary.put("weeks", JSONArray().also { a ->
+            weeks.forEach { w ->
+                a.put(
+                    JSONObject().put("week", w.week).put("from", w.from.toString()).put("to", w.to.toString()).put("complete", w.complete)
+                        .put("limitDaysCounted", w.limitDaysCounted).put("limitDaysKept", w.limitDaysKept)
+                        .put("minutesOverLimits", w.minutesOverLimits)
+                        .put("averageMinutesPerLimitedApp", w.averageMinutesPerLimitedApp ?: JSONObject.NULL)
+                        .put("focusSessionsCompleted", w.focusSessionsCompleted).put("daysWithFocus", w.daysWithFocus)
+                        .put("auraChange", w.auraChange),
+                )
+            }
+        })
+        val rescue = Validation.decode(db.meta().get(RESCUE_STATS))
+        summary.put(
+            "rescueReminders",
+            JSONObject().put("sent", rescue.sent).put("limitKeptAfter", rescue.keptAfter)
+                .put("limitPassedAfter", rescue.overAfter).put("notCounted", rescue.notCounted),
+        )
+        return summary
+    }
+
     suspend fun deleteEverything() = db.wipe()
+
+    /** [app]'s terms on [date] under DayRules.termsOnDay (a limited app counts from the day after it was added). */
+    fun termsOnDay(app: TrackedAppEntity, date: LocalDate, startDate: LocalDate?): AppTerms =
+        DayRules.termsOnDay(app.terms(), dateOf(app.addedAt), date, startDate)
+
+    /** True once [date] has a settled score; settled days are never written again. */
+    private suspend fun isSettled(date: LocalDate): Boolean =
+        db.scores().lastDaily()?.date?.let { !date.isAfter(LocalDate.parse(it)) } == true
 
     private fun dateOf(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(clock.zone()).toLocalDate()
 
@@ -488,6 +552,7 @@ class AurioRepository(
         private const val LIMIT_ALERTS = "limit_alerts_sent"
         private const val ACCESS_NOTICE = "access_notice_shown"
         private const val RECAP_SENT = "recap_sent_for"
+        private const val RESCUE_STATS = "rescue_stats"
     }
 }
 

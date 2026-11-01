@@ -8,6 +8,25 @@ class DayRulesTest {
     private fun limited(limit: Int, label: String = "Instagram") = AppTerms(label, AppCategory.LIMITED, limit)
     private fun neutral(label: String = "Instagram") = AppTerms(label, AppCategory.NEUTRAL, null)
 
+    // ---- New apps count from tomorrow ----
+
+    private val start = java.time.LocalDate.of(2026, 11, 1)
+    private val day = start.plusDays(5)
+
+    @Test fun limitedAppAddedLaterIsNotScoredThatDay() =
+        assertEquals(neutral(), DayRules.termsOnDay(limited(30), addedOn = day, date = day, startDate = start))
+
+    @Test fun limitedAppCountsFromTheNextDay() =
+        assertEquals(limited(30), DayRules.termsOnDay(limited(30), addedOn = day, date = day.plusDays(1), startDate = start))
+
+    @Test fun appsChosenOnTheInstallDayCountAtOnce() {
+        assertEquals(limited(30), DayRules.termsOnDay(limited(30), addedOn = start, date = start, startDate = start))
+        assertEquals(limited(30), DayRules.termsOnDay(limited(30), addedOn = start, date = start, startDate = null))
+    }
+
+    @Test fun neutralAppsAreUnchanged() =
+        assertEquals(neutral(), DayRules.termsOnDay(neutral(), addedOn = day, date = day, startDate = start))
+
     @Test fun lowerLimitAppliesToday() {
         assertEquals(limited(20), DayRules.termsAfterEdit(limited(30), limited(20)))
     }

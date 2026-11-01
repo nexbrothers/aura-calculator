@@ -18,6 +18,13 @@ Plans (Claude Docs, read-only context):
 - Week-over-week progress (`domain/Progress.kt`, tests `ProgressTest`): Insights "Compared with the week before" and
   a line on app detail. Average minutes per counted day, last 7 settled days vs the 7 before; needs 3 counted days
   in each week; Unknown and not-limited days left out. Display only, never changes aura.
+- Home: one insight line (`ui/home/HomeInsight.kt`: limit about to run out > week of progress > limit passed >
+  focus aura left > limits on track) and a "Start focus session" button.
+- Export starts with `progressSummary` (`domain/Validation.kt`): weekly counts since install plus Rescue reminder
+  outcomes (`app_meta` key `rescue_stats`). For the 14-day test: docs/testing-14-day.md.
+- New rule: a Limited app added after the install day counts from the next day (`DayRules.termsOnDay`; today's
+  terms are recorded as Neutral and Limits shows "Limit starts tomorrow, not scored today").
+- Settled days are frozen: `recordTerms`/`recordUsage` skip any date at or before the last settled day.
 - Midnight settlement (`domain/Settlement.kt`, `AurioRepository.settlePastDays`, `work/SettleWorker.kt`) freezes days:
   entries, daily_score, streak, level events. Pure scoring rules live in `domain/AuraScoring.kt`.
 - Insights from real history, Profile (name, default length, reduce motion, export JSON, delete all data).
@@ -40,7 +47,8 @@ Plans (Claude Docs, read-only context):
 - Developer tools > Notifications: "Send daily recap now" and "Run a limit check in 10 seconds" (leave the app).
 
 ## Caveats
-- Build verified locally on 2026-10-26: `assembleDebug` + 13 unit tests pass.
+- Verified 2026-11-01 for 0.2.0 (versionCode 4): 206 unit tests, 35 device tests on the Pixel_10 emulator
+  (`ANDROID_SERIAL=emulator-5554` so a connected phone is not used), lint (warnings only), signed release APK + AAB.
 - JDK: Gradle 8.11 cannot run on JDK 25 (the default Java and both Android Studio JBRs here are 25).
   Use JDK 21: `JAVA_HOME=C:\Users\AmanSharma\.jdks\jbr-21.0.11`, and in Android Studio set
   Settings > Build Tools > Gradle > Gradle JDK to jbr-21.
@@ -68,9 +76,8 @@ Plans (Claude Docs, read-only context):
    screen woken without a new resume (call proximity blanking) loses the time after wake.
 6. Open rule decisions (recommendations in use): streak = focus session OR all limits kept; usage-off day = Unknown;
    phone-free = timer completion; session crossing midnight credits the end day.
-7. Product question: a Limited app is scored from the day it is added, and removal applies tomorrow, so adding
-   an unused app late and removing it after midnight earns two days of +20. Consider a per-day bonus cap or
-   scoring new apps from tomorrow.
+7. (Closed 2026-11-01) New Limited apps now count from the next day, so the add-late/remove-after-midnight
+   loophole earns +20 at most once, for a full day limited.
 
 ## Day terms (schema 2)
 - usage_day records label, category and limit per app per day the first time the app is seen that day.

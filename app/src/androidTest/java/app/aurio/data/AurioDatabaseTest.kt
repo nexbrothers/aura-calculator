@@ -229,6 +229,31 @@ class AurioDatabaseTest {
         assertTrue(db.scores().entriesFor("2026-01-01").isEmpty())
     }
 
+    @Test fun limitedAppAddedAfterTheInstallDayCountsFromTheNextDay() = runBlocking {
+        repo.markStartDate()
+        clock.advanceDays(1) // 2026-01-02: not the install day
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-02"), mapOf("ig" to 0))
+        clock.advanceDays(1)
+        repo.recordTerms(java.time.LocalDate.parse("2026-01-03"))
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-03"), mapOf("ig" to 0))
+        clock.advanceDays(1)
+        repo.settlePastDays { mapOf("ig" to 0) }
+        assertTrue(db.scores().entriesFor("2026-01-02").isEmpty())
+        assertEquals(listOf(20), db.scores().entriesFor("2026-01-03").map { it.points })
+    }
+
+    @Test fun usageForASettledDayIsNeverRewritten() = runBlocking {
+        repo.markStartDate()
+        repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 45))
+        clock.advanceDays(1)
+        repo.settlePastDays { mapOf("ig" to 45) }
+        // The clock is set back and a new reading arrives for the settled day.
+        repo.recordUsage(java.time.LocalDate.parse("2026-01-01"), mapOf("ig" to 0))
+        assertEquals(45, db.usageDays().get("2026-01-01", "ig")!!.minutes)
+    }
+
     @Test fun accessOffAllDaySettlesAsUnknown() = runBlocking {
         repo.markStartDate()
         repo.saveApp("ig", "Instagram", AppCategory.LIMITED, 30)

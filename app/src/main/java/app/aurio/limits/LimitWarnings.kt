@@ -90,6 +90,7 @@ object LimitCheck {
         due.forEach { c ->
             RescueNotifications.post(app, c.app, c.state.style, c.usualMinute ?: return@forEach)
             repo.saveRescueState(c.app.packageName, Rescue.sent(c.state, day))
+            repo.recordRescue(null)
         }
         val after = candidates.map { c -> if (c in due) c.copy(state = Rescue.sent(c.state, day)) else c }
         return Rescue.minutesUntilNextCheck(after, day, nowMinute, warned, Rescue.quietMinutesLeft(nowMinute, quietStart, quietEnd))

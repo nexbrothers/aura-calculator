@@ -87,7 +87,9 @@ import app.aurio.ui.theme.AurioType
  */
 internal fun tomorrowNote(today: AppUsage, saved: AppTerms?): String? = when {
     saved == null -> "Stops being tracked tomorrow"
-    saved.category != today.category -> "Moves to ${saved.category.name.lowercase()} tomorrow"
+    // A newly added limited app, or one just moved to limited, starts counting tomorrow.
+    saved.category == AppCategory.LIMITED && today.category != AppCategory.LIMITED -> "Limit starts tomorrow, not scored today"
+    saved.category != today.category ->"Moves to ${saved.category.name.lowercase()} tomorrow"
     saved.category == AppCategory.LIMITED && saved.limitMinutes != today.limitMinutes ->
         "Limit is ${today.limitMinutes} min today, ${saved.limitMinutes} min from tomorrow"
     else -> null

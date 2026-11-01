@@ -224,7 +224,7 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
 
         AurioCard(padding = AurioSpacing.lg) {
             CardHeader("Your data")
-            NavRow("Export my data", "Scores, tracked apps, and focus sessions. You choose where it goes.", onClickLabel = "Export my data", onClick = {
+            NavRow("Export my data", "A weekly progress summary, scores, tracked apps and focus sessions. You choose where it goes.", onClickLabel = "Export my data", onClick = {
                 scope.launch {
                     val json = AurioStore.exportJson()
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain")
