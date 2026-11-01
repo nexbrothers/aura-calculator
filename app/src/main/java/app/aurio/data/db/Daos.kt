@@ -55,6 +55,9 @@ interface UsageDayDao {
     @Query("SELECT * FROM usage_day WHERE date >= :from AND date < :until ORDER BY date")
     suspend fun between(from: String, until: String): List<UsageDayEntity>
 
+    @Query("SELECT * FROM usage_day WHERE date >= :from AND date < :until ORDER BY date")
+    fun observeBetween(from: String, until: String): Flow<List<UsageDayEntity>>
+
     @Query("SELECT * FROM usage_day WHERE date = :date")
     suspend fun forDate(date: String): List<UsageDayEntity>
 

@@ -37,8 +37,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aurio.data.AurioStore
+import app.aurio.domain.Progress
 import app.aurio.domain.SystemAurioClock
+import app.aurio.domain.WeekChange
+import app.aurio.ui.components.AppTile
 import app.aurio.ui.components.AurioCard
+import app.aurio.ui.components.Pill
+import app.aurio.ui.components.PillTone
 import app.aurio.ui.components.CardHeader
 import app.aurio.ui.components.RowDivider
 import app.aurio.ui.components.ScoreChangeRow
@@ -59,6 +64,7 @@ fun InsightsScreen() {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     val focusMinutes by remember { AurioStore.focusMinutesLastWeek() }.collectAsStateWithLifecycle(0)
     val startDate by remember { AurioStore.startDate() }.collectAsStateWithLifecycle(null)
+    val weekChanges by remember { AurioStore.weekChanges() }.collectAsStateWithLifecycle(emptyList())
 
     val today = SystemAurioClock.today()
     val byDate = state.history.associate { it.date to it.delta }
@@ -96,6 +102,8 @@ fun InsightsScreen() {
             }
         }
 
+        if (state.limitedApps.isNotEmpty()) ComparisonCard(weekChanges)
+
         AurioCard(padding = AurioSpacing.lg) {
             CardHeader("Today, line by line")
             if (state.daily.lines.isEmpty()) {
@@ -122,6 +130,60 @@ private fun Stat(label: String, value: String, modifier: Modifier) {
     Column(modifier) {
         Text(label, style = AurioType.caption, color = AurioColors.InkSubtle)
         Text(value, style = AurioType.title)
+    }
+}
+
+/**
+ * Each limited app's last 7 settled days against the 7 before, biggest improvement first, so a
+ * low score still shows what is getting better. Says only what was measured.
+ */
+@Composable
+private fun ComparisonCard(changes: List<WeekChange>) {
+    AurioCard(padding = AurioSpacing.lg) {
+        CardHeader("Compared with the week before")
+        val headline = Progress.headline(changes)
+        if (headline == null) {
+            Text(
+                "Your first comparison appears once each of the last two weeks has ${Progress.MIN_DAYS_PER_WEEK} counted days.",
+                style = AurioType.body, color = AurioColors.InkMuted, modifier = Modifier.padding(bottom = AurioSpacing.sm),
+            )
+            return@AurioCard
+        }
+        Text(headline, style = AurioType.bodyStrong, modifier = Modifier.padding(bottom = AurioSpacing.md))
+        changes.forEachIndexed { i, change ->
+            if (i > 0) RowDivider()
+            Row(Modifier.fillMaxWidth().padding(vertical = AurioSpacing.md), verticalAlignment = Alignment.CenterVertically) {
+                AppTile(change.label, packageName = change.packageName)
+                Spacer(Modifier.width(AurioSpacing.md))
+                Column(Modifier.weight(1f)) {
+                    Text(change.label, style = AurioType.bodyStrong)
+                    Text(Progress.keptText(change), style = AurioType.caption, color = AurioColors.InkSubtle)
+                }
+                Spacer(Modifier.width(AurioSpacing.sm))
+                Pill(Progress.pillText(change), if (change.direction == WeekChange.Direction.LESS) PillTone.GAIN else PillTone.NEUTRAL)
+            }
+        }
+        Text(
+            "Average minutes a day over the last 7 counted days. Days with usage access off are left out.",
+            style = AurioType.caption, color = AurioColors.InkSubtle, modifier = Modifier.padding(top = AurioSpacing.sm),
+        )
+    }
+}
+
+@Preview(widthDp = 360, showBackground = true)
+@Composable
+private fun ComparisonCardPreview() {
+    AurioTheme {
+        Column(Modifier.padding(AurioSpacing.xl), verticalArrangement = Arrangement.spacedBy(AurioSpacing.md)) {
+            ComparisonCard(
+                listOf(
+                    WeekChange("a", "Instagram", 22, 40, 5, 7, 2, 6),
+                    WeekChange("b", "YouTube", 31, 30, 4, 7, 4, 7),
+                    WeekChange("c", "Snapchat", 42, 30, 1, 7, 3, 7),
+                ),
+            )
+            ComparisonCard(emptyList())
+        }
     }
 }
 

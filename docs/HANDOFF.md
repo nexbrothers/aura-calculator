@@ -15,6 +15,9 @@ Plans (Claude Docs, read-only context):
 - Onboarding (5 steps, resumes), app picker (Limited / Neutral / Essential), Limits with steppers, Manage apps.
 - Focus: presets 15/25/50/90 plus Custom 5 to 180 min; end time saved; overdue session completed on next open.
 - Smart Aura Rescue (see "Smart Rescue" below): one nudge before the usual limit-crossing time, backs off when ignored.
+- Week-over-week progress (`domain/Progress.kt`, tests `ProgressTest`): Insights "Compared with the week before" and
+  a line on app detail. Average minutes per counted day, last 7 settled days vs the 7 before; needs 3 counted days
+  in each week; Unknown and not-limited days left out. Display only, never changes aura.
 - Midnight settlement (`domain/Settlement.kt`, `AurioRepository.settlePastDays`, `work/SettleWorker.kt`) freezes days:
   entries, daily_score, streak, level events. Pure scoring rules live in `domain/AuraScoring.kt`.
 - Insights from real history, Profile (name, default length, reduce motion, export JSON, delete all data).

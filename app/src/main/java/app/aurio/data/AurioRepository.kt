@@ -10,7 +10,9 @@ import app.aurio.domain.FocusSession
 import app.aurio.domain.LimitAlert
 import app.aurio.domain.LimitWatch
 import app.aurio.domain.LineKind
+import app.aurio.domain.Progress
 import app.aurio.domain.Rescue
+import app.aurio.domain.WeekChange
 import app.aurio.domain.RescueDay
 import app.aurio.domain.RescueOutcome
 import app.aurio.domain.RescueState
@@ -270,6 +272,22 @@ class AurioRepository(
 
     suspend fun setAccessNoticeShown(shown: Boolean) =
         if (shown) db.meta().put(AppMetaEntity(ACCESS_NOTICE, "1")) else db.meta().delete(ACCESS_NOTICE)
+
+    // ---- Week-over-week progress --------------------------------------------------------
+
+    /** How each app limited now compares with the week before (see Progress), biggest improvement first. */
+    fun weekChanges(today: LocalDate): Flow<List<WeekChange>> = combine(
+        db.usageDays().observeBetween(today.minusDays(14).toString(), today.toString()),
+        trackedApps,
+        lastSettled,
+    ) { rows, tracked, settled ->
+        val settledThrough = settled?.date?.let(LocalDate::parse)
+        val limitedNow = tracked.filter { it.category == AppCategory.LIMITED.name }.map { it.packageName }.toSet()
+        val changes = rows.filter { it.packageName in limitedNow }.groupBy { it.packageName }.mapNotNull { (pkg, days) ->
+            Progress.weekChange(pkg, days.map { DayRecord(LocalDate.parse(it.date), it.minutes, it.terms()) }, today, settledThrough)
+        }
+        Progress.sorted(changes)
+    }
 
     // ---- Smart Rescue -------------------------------------------------------------------
 

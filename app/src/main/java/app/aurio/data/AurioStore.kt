@@ -50,6 +50,7 @@ import app.aurio.limits.LimitNotifications
 import app.aurio.limits.RescueNotifications
 import app.aurio.domain.Rescue
 import app.aurio.domain.RescueStatus
+import app.aurio.domain.WeekChange
 import app.aurio.widget.Widgets
 import app.aurio.ui.levelup.ShareCard
 import java.time.LocalDate
@@ -287,6 +288,9 @@ object AurioStore {
         val today = SystemAurioClock.today()
         return repo.appPoints(packageName, today.minusDays(7), today)
     }
+
+    /** Each limited app's last 7 settled days against the 7 before (Insights, app detail). */
+    fun weekChanges(): Flow<List<WeekChange>> = repo.weekChanges(SystemAurioClock.today())
 
     /** Completed focus minutes over the last 7 days, today included. */
     fun focusMinutesLastWeek(): Flow<Int> = repo.focusMinutesSince(SystemAurioClock.today().minusDays(6))

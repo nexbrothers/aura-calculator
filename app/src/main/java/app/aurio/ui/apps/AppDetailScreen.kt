@@ -38,7 +38,10 @@ import app.aurio.domain.AuraScoring
 import app.aurio.domain.DayBar
 import app.aurio.domain.History
 import app.aurio.domain.LimitStatus
+import app.aurio.domain.Progress
 import app.aurio.domain.Rescue
+import app.aurio.domain.WeekChange
+import app.aurio.ui.components.RowDivider
 import app.aurio.domain.RescueStatus
 import app.aurio.limits.RescueNotifications
 import app.aurio.ui.components.SecondaryButton
@@ -75,6 +78,8 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
     val state by AurioStore.state.collectAsStateWithLifecycle()
     val records by remember(packageName) { AurioStore.appWeek(packageName) }.collectAsStateWithLifecycle(emptyList())
     val points by remember(packageName) { AurioStore.appPointsLastWeek(packageName) }.collectAsStateWithLifecycle(emptyList())
+    val changes by remember { AurioStore.weekChanges() }.collectAsStateWithLifecycle(emptyList())
+    val weekChange = changes.firstOrNull { it.packageName == packageName }
 
     val todayUsage = state.apps.firstOrNull { it.packageName == packageName }
         ?.let { if (state.usageAccess) it else it.copy(usedMinutes = null) }
@@ -116,6 +121,18 @@ fun AppDetailScreen(packageName: String, onBack: () -> Unit) {
                 else "The line on each day is the limit that applied then. ? means that day was not tracked.",
                 style = AurioType.caption, color = AurioColors.InkSubtle,
             )
+            weekChange?.let { change ->
+                Spacer(Modifier.height(AurioSpacing.md))
+                RowDivider()
+                Spacer(Modifier.height(AurioSpacing.md))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Compared with the week before", style = AurioType.bodyStrong, modifier = Modifier.weight(1f))
+                    Pill(Progress.pillText(change), if (change.direction == WeekChange.Direction.LESS) PillTone.GAIN else PillTone.NEUTRAL)
+                }
+                Spacer(Modifier.height(AurioSpacing.xs))
+                Text(Progress.minutesText(change), style = AurioType.body, color = AurioColors.InkMuted)
+                Text(Progress.keptText(change), style = AurioType.caption, color = AurioColors.InkSubtle)
+            }
         }
 
         if (saved != null) {
