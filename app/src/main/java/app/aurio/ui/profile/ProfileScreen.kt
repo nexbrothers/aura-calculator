@@ -1,6 +1,7 @@
 package app.aurio.ui.profile
 
 import android.app.AlarmManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -8,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.text.format.DateFormat
+import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -76,6 +78,7 @@ import app.aurio.ui.theme.AurioType
 import kotlinx.coroutines.launch
 
 private val sessionLengths = listOf(25, 50, 90)
+private const val PRIVACY_POLICY_URL = "https://waura.nexbrothers.com/privacy-policy"
 
 /**
  * Profile, as the approved design lays it out: who you are and your aura, privacy first (usage
@@ -132,6 +135,19 @@ fun ProfileScreen(onOpenUsageSettings: () -> Unit, onDeveloperTools: () -> Unit 
                 trailing = { Pill(if (state.usageAccess) "On" else "Off", if (state.usageAccess) PillTone.GAIN else PillTone.UNKNOWN) },
                 onClickLabel = "Change usage access in Settings",
                 onClick = onOpenUsageSettings,
+            )
+            RowDivider()
+            NavRow(
+                title = "Privacy policy",
+                subtitle = "Read how Waura handles your data",
+                onClickLabel = "Open privacy policy in your browser",
+                onClick = {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)))
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, "Install a browser to read the privacy policy", Toast.LENGTH_LONG).show()
+                    }
+                },
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(AurioSpacing.sm)) {

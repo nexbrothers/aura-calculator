@@ -13,14 +13,14 @@ ksp {
 
 android {
     namespace = "app.aurio"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         // The Play listing's package name (Waura). The code namespace stays app.aurio.
         applicationId = "com.nexbrothers.waura"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 1
+        targetSdk = 36
+        versionCode = 3
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -5,7 +5,7 @@ Full product + visual brief: `docs/design-brief.md`. Approved interactive design
 
 ## Stack
 - Kotlin 2.1, Jetpack Compose (BOM 2024.12), Material 3, Navigation Compose, Glance (widgets)
-- minSdk 26, target/compile 35, JDK 17, single `:app` module, package `app.aurio`
+- minSdk 26, target/compile 36, JDK 17, single `:app` module, package `app.aurio`
 - No DI framework yet; `AurioStore` (StateFlow) is the single source of truth
 
 ## Commands

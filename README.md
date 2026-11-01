@@ -3,8 +3,8 @@
 Your attention has an aura. An on-device digital-wellbeing app for Android, built with Jetpack Compose.
 
 ## Run it
-1. Open this folder in **Android Studio** (Ladybug 2024.2 or newer) → *Open* → select `Aurio`.
-2. Let Gradle sync (first sync downloads Gradle 8.11.1, AGP 8.7.3 and the Android SDK 35 if missing).
+1. Open this folder in **Android Studio** (Meerkat Feature Drop 2024.3.2 or newer) → *Open* → select `Aurio`.
+2. Install Android SDK Platform 36 in SDK Manager and let Gradle sync (first sync downloads Gradle 8.11.1 and AGP 8.10.1 if missing).
 3. Pick an emulator or device (Android 8.0+) and press **Run**.
 4. In the app, Profile → Usage access → allow Aurio to see real usage minutes.
    Without it, limits show as "Unknown", exactly as designed.

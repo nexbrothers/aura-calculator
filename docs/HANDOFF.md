@@ -10,6 +10,7 @@ Plans (Claude Docs, read-only context):
 - Product and design rules: docs/design-brief.md and CLAUDE.md
 
 ## What works now (all on-device, no INTERNET permission)
+- Profile > Privacy > Privacy policy opens `https://waura.nexbrothers.com/privacy-policy` in the user's browser.
 - Room database (7 tables) + DataStore settings; `AurioStore` exposes `AurioState` derived from them.
 - Onboarding (5 steps, resumes), app picker (Limited / Neutral / Essential), Limits with steppers, Manage apps.
 - Focus: presets 25/50/90 plus Custom 5 to 180 min; end time saved; overdue session completed on next open.
